@@ -1,0 +1,43 @@
+{% comment %}
+A button, and the list it opens hanging under it.
+
+One include wherever a list is too long to read: a filter, a set of ticks, and a footer that
+says how much you have narrowed to. What a row looks like is the caller's business, passed in
+as `row_template` and rendered once per entry in `rows`.
+
+`group` names the set for the script and matches the legend groups, so a tick and a legend band
+narrow the same drawing without either knowing about the other. `key` names the data attribute
+that carries identity on the things being narrowed, because a site marker, a circuit line and a
+cable each already had a name for their own id before this control existed.
+{% endcomment %}
+<div class="atlas-finder" data-atlas-finder="{{ group }}" data-atlas-finder-key="{{ key }}"
+     data-atlas-finder-noun="{{ noun }}">
+  <button type="button" class="btn btn-sm btn-outline-secondary atlas-finder__toggle"
+          data-atlas-finder-toggle aria-expanded="false" aria-haspopup="true">
+    <i class="mdi mdi-{{ icon }}" aria-hidden="true"></i>
+    {{ label }} <span class="badge text-bg-secondary" data-atlas-finder-count>{{ rows|length }}</span>
+    <i class="mdi mdi-chevron-down atlas-finder__caret" aria-hidden="true"></i>
+  </button>
+
+  <div class="atlas-finder__panel" data-atlas-finder-panel hidden>
+    <label class="atlas-finder__search">
+      <i class="mdi mdi-magnify" aria-hidden="true"></i>
+      <input type="search" data-atlas-finder-search autocomplete="off" spellcheck="false"
+             placeholder="Filter {{ noun }}s" aria-label="Filter {{ noun }}s">
+    </label>
+
+    <div class="atlas-finder__list" data-atlas-finder-list>
+      {% for row in rows %}
+        {% include row_template %}
+      {% empty %}
+        <p class="text-muted small m-2">{{ empty_text|default:'Nothing to list.' }}</p>
+      {% endfor %}
+      <p class="text-muted small m-2" data-atlas-finder-empty hidden>Nothing matches.</p>
+    </div>
+
+    <div class="atlas-finder__foot">
+      <span data-atlas-finder-summary>{{ rows|length }} {{ noun }}{{ rows|length|pluralize }}</span>
+      <button type="button" class="btn btn-link btn-sm p-0" data-atlas-finder-clear hidden>Clear</button>
+    </div>
+  </div>
+</div>

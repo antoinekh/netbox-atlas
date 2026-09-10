@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="24 40 292 292" role="img" aria-labelledby="favicon-title">
+  <title id="favicon-title">netbox atlas</title>
+
+  <!--
+    The mark alone, one colour and heavier, for a browser tab. Two planes inside the brackets
+    rather than three: the frame is half the drawing at this size, and a third plane behind it
+    stopped being a level and became noise. The frame and the step down survive, which is the
+    idea; the exact count of levels does not have to.
+  -->
+  <g fill="none" stroke="#00857d" stroke-width="26" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M40 99 V69 A16 16 0 0 1 56 53 H86"/>
+    <path d="M254 53 H284 A16 16 0 0 1 300 69 V99"/>
+    <path d="M300 267 V297 A16 16 0 0 1 284 313 H254"/>
+    <path d="M86 313 H56 A16 16 0 0 1 40 297 V267"/>
+  </g>
+  <path d="M 170 92 L 258 137 L 170 182 L 82 137 Z" fill="none" stroke="#00857d" stroke-width="20" stroke-linejoin="round"/>
+  <path d="M 170 214 L 230 245 L 170 276 L 110 245 Z" fill="#00857d"/>
+</svg>

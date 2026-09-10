@@ -1,0 +1,1624 @@
+/*
+ * netbox-atlas.
+ *
+ * Three drawings and the panels beside them: a world map, a floor plan and a rack elevation.
+ *
+ * Chrome follows NetBox's own theme variables, through the tokens in section 0, so the plugin
+ * tracks the light and dark themes without a second palette to keep in step. Only the things
+ * NetBox has no variable for, such as a grid line or a cabinet outline, are stated here, and
+ * those are given in rgba over the current text colour so they invert with the theme by
+ * themselves.
+ *
+ * Colour that *means* something never appears in this file. It comes from palette.py, through
+ * the custom properties inc/palette.html emits, so the value the server paints a rack with and
+ * the value the stylesheet paints its legend swatch with cannot drift apart.
+ *
+ * Sections
+ *   1. Shared: toolbar, stats, legend, hover card, empty states
+ *   2. The floor plan
+ *   3. The placement editor
+ *   4. The rack elevation
+ *   5. The world map
+ *   6. The trace panel
+ */
+
+/* ==========================================================================
+ * 0. Theme tokens
+ *
+ * NetBox 4 is built on Tabler, which names its theme variables `--tblr-*` and sets no
+ * `--bs-*` variables at all. Every `var(--bs-...)` this stylesheet used to write therefore
+ * fell back to its light default in both themes: white halos round the rack names, white
+ * buttons and a white hover card on the dark page. The chrome colours are read from Tabler
+ * once, here, and switch with the theme; the rest of the file uses these names only.
+ *
+ * The accent is the plugin's own, not NetBox's teal, so a selection never reads as a link.
+ * It is lighter in the dark theme, where the light-theme blue is too dark to see.
+ * ======================================================================= */
+
+:root {
+  --atlas-bg: var(--tblr-bg-surface, #fff);
+  --atlas-text: var(--tblr-body-color, #212529);
+  --atlas-muted: var(--tblr-secondary-color, #6c757d);
+  --atlas-neutral: var(--tblr-secondary, #6c757d);
+  --atlas-border: var(--tblr-border-color, #dee2e6);
+  --atlas-subtle-bg: var(--tblr-tertiary-bg, #f8f9fa);
+  --atlas-subtle-bg-strong: var(--tblr-secondary-bg, #e9ecef);
+  --atlas-danger: var(--tblr-danger, #dc3545);
+  --atlas-warning: var(--tblr-warning, #ffc107);
+  --atlas-mono: var(--tblr-font-monospace, monospace);
+  --atlas-accent: #0d6efd;
+  --atlas-on-accent: #fff;
+}
+
+[data-bs-theme='dark'] {
+  --atlas-accent: #6ea8fe;
+  --atlas-on-accent: #111827;
+}
+
+/* ==========================================================================
+ * 1. Shared
+ * ======================================================================= */
+
+.atlas-toolbar {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  margin-bottom: .75rem;
+  flex-wrap: wrap;
+}
+
+.atlas-toolbar__spacer {
+  flex: 1 1 auto;
+}
+
+.atlas-scale {
+  font-size: .8125rem;
+  white-space: nowrap;
+}
+
+.atlas-help {
+  font-size: 1.125rem;
+  line-height: 1;
+  color: var(--atlas-muted);
+  cursor: help;
+}
+
+.atlas-help:focus-visible {
+  outline: 2px solid var(--atlas-accent);
+  outline-offset: 2px;
+  border-radius: 50%;
+}
+
+.atlas-empty {
+  padding: 2.5rem 1rem;
+  text-align: center;
+  color: var(--atlas-muted);
+}
+
+/* ---- the level strip ----
+ *
+ * The way back out of the atlas, in the same place on every level. Styled as a quiet
+ * breadcrumb rather than as buttons: it is orientation, and it should not compete with the
+ * controls that act on what you are looking at.
+ *
+ * The divider is on the levels rather than on whatever follows. As `.atlas-levels + *` it landed
+ * inside the next element, and where that was a button group the border drew hard against the
+ * first button and the padding pushed it out of line. A divider belongs to the thing it
+ * divides from. */
+.atlas-levels {
+  display: flex;
+  align-items: center;
+  gap: .25rem;
+  font-size: .8125rem;
+  flex: 0 0 auto;
+  min-width: 0;
+  border-right: 1px solid var(--atlas-border);
+  padding-right: .75rem;
+  margin-right: .25rem;
+}
+
+.atlas-levels a {
+  color: var(--atlas-muted);
+  text-decoration: none;
+  padding: .125rem .25rem;
+  border-radius: .25rem;
+  white-space: nowrap;
+}
+
+.atlas-levels a:hover,
+.atlas-levels a:focus-visible {
+  color: var(--atlas-accent);
+  background: rgba(127, 127, 127, .14);
+}
+
+.atlas-levels__sep {
+  color: var(--atlas-muted);
+  opacity: .5;
+}
+
+.atlas-levels__here {
+  font-weight: 600;
+  padding: .125rem .25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- the stat strip ----
+ *
+ * The figures a drawing cannot state: how many, how full, how much power. They sit across the
+ * top because the space above a portrait plan is otherwise dead, and because "how much" is the
+ * question somebody arrives with, before "where".
+ *
+ * A figure that falls in a palette band wears that band as a rule down its left edge, which is
+ * the same device a trace hop uses to carry its kind. The strip and the plan are then two
+ * readings of one set of facts. */
+.atlas-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+  gap: .5rem;
+  margin-bottom: .875rem;
+}
+
+.atlas-stat {
+  display: flex;
+  flex-direction: column;
+  gap: .0625rem;
+  padding: .5rem .75rem;
+  border-radius: .375rem;
+  background: rgba(127, 127, 127, .07);
+  border-left: 3px solid transparent;
+}
+
+.atlas-stat--toned {
+  border-left-color: var(--atlas-stat-tone);
+}
+
+.atlas-stat__label {
+  font-size: .6875rem;
+  color: var(--atlas-muted);
+}
+
+.atlas-stat__value {
+  font-size: 1.375rem;
+  font-weight: 600;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+
+.atlas-stat__detail {
+  font-size: .75rem;
+  color: var(--atlas-muted);
+}
+
+/* ---- legends ----
+ *
+ * A swatch, a label and a tally, so the counts line up in a column rather than trailing each
+ * label at a different place. A band nothing falls in stays listed, because the bands are the
+ * scale and a scale with gaps is harder to read than one with zeroes; it recedes rather than
+ * disappearing. */
+.atlas-legend {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 .75rem;
+}
+
+.atlas-legend li {
+  padding: 0;
+}
+
+.atlas-legend__row {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  width: 100%;
+  padding: .1875rem .25rem;
+  font-size: .875rem;
+  text-align: left;
+  color: inherit;
+  background: none;
+  border: 0;
+  border-radius: .25rem;
+}
+
+.atlas-legend li.is-empty {
+  opacity: .45;
+}
+
+.atlas-legend__label {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.atlas-legend__count {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--atlas-muted);
+}
+
+.atlas-swatch {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, .25);
+  flex: 0 0 auto;
+}
+
+.atlas-swatch--reserved {
+  background: rgba(201, 72, 63, .3);
+  border-color: rgba(201, 72, 63, .85);
+  border-style: dashed;
+}
+
+/* Picked out of a legend band.
+ *
+ * One class for all three drawings, because it is one behaviour: a rack, a device, a cable and a
+ * site all recede the same way when the reader has asked to see something else. Receding rather
+ * than leaving, because a thing that vanishes takes the shape of its drawing with it, and the
+ * shape is what a plan, an elevation and a map are all for.
+ *
+ * Deliberately not `is-dimmed`. The rack and the map each have a selection model that owns that
+ * class and clears it wholesale on every click, so sharing it would have made picking a band and
+ * selecting a device cancel each other out at random. */
+.is-filtered {
+  opacity: .14;
+  pointer-events: none;
+}
+
+.atlas-rack,
+.atlas-device,
+.atlas-reserved,
+.atlas-run,
+.atlas-cable {
+  transition: opacity .12s ease;
+}
+
+/* A filterable legend is a set of controls, so it says so: the rows take a cursor and a hover,
+   and the picked one keeps a mark after the pointer leaves. */
+.atlas-legend--filterable button.atlas-legend__row:not(:disabled) {
+  cursor: pointer;
+}
+
+.atlas-legend--filterable button.atlas-legend__row:not(:disabled):hover {
+  background: rgba(127, 127, 127, .14);
+}
+
+.atlas-legend--filterable .atlas-legend__row.is-picked {
+  background: rgba(127, 127, 127, .2);
+  box-shadow: inset 2px 0 0 var(--atlas-accent);
+  font-weight: 600;
+}
+
+.atlas-legend--filterable button.atlas-legend__row:focus-visible {
+  outline: 2px solid var(--atlas-accent);
+  outline-offset: -2px;
+}
+
+/* ---- find-a-rack ---- */
+
+.atlas-find {
+  display: flex;
+  align-items: center;
+  gap: .375rem;
+  padding: .125rem .5rem;
+  border: 1px solid var(--atlas-border);
+  border-radius: .25rem;
+  color: var(--atlas-muted);
+  font-size: .8125rem;
+}
+
+.atlas-find input {
+  border: 0;
+  background: none;
+  color: inherit;
+  outline: none;
+  width: 8rem;
+  padding: .1875rem 0;
+}
+
+.atlas-find:focus-within {
+  border-color: var(--atlas-accent);
+}
+
+/* A search matching nothing dims the whole room, which looks exactly like a plan that failed
+   to load. The box says which of the two it is. */
+.atlas-find.is-empty {
+  border-color: var(--atlas-danger);
+  color: var(--atlas-danger);
+}
+
+/* ---- the hover card ----
+ *
+ * Used by the plan and, through MapLibre's popup, by the map. A name alone does not answer
+ * "which of these is the one I want"; where it is, who owns it and how big it is do.
+ *
+ * The `:not()` matters. MapLibre puts the class we hand it on the popup's outer element and
+ * draws the visible box in a child, so styling both painted a card inside a card: two borders,
+ * two shadows, and an empty margin of white down the right of every hover. The outer element
+ * only positions; the inner one is the card. */
+.atlas-card:not(.maplibregl-popup),
+.maplibregl-popup.atlas-card .maplibregl-popup-content {
+  background: var(--atlas-bg);
+  color: var(--atlas-text);
+  border: 1px solid var(--atlas-border);
+  border-radius: .375rem;
+  box-shadow: 0 .5rem 1rem rgba(0, 0, 0, .15);
+  padding: .5rem .625rem;
+  font-size: .8125rem;
+  /* Sized to its content up to a limit, rather than to the library's narrow default, which
+     broke "North Carolina" over two lines and a street address over five. */
+  width: max-content;
+  max-width: 22rem;
+  white-space: normal;
+}
+
+/* MapLibre draws the little arrow as its own element, in its own colour. */
+.maplibregl-popup.atlas-card .maplibregl-popup-tip {
+  border-top-color: var(--atlas-border);
+  border-bottom-color: var(--atlas-border);
+}
+
+.atlas-card__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .5rem;
+  margin-bottom: .25rem;
+}
+
+.atlas-card__status {
+  font-size: .6875rem;
+  color: var(--atlas-muted);
+}
+
+/* What the overlay currently says about this rack, above the facts that do not change with it.
+   The swatch ties the sentence to the box under the cursor. */
+.atlas-card__reading {
+  display: flex;
+  align-items: center;
+  gap: .375rem;
+  margin-bottom: .3125rem;
+  font-weight: 600;
+}
+
+.atlas-card__reading .atlas-swatch {
+  width: .75rem;
+  height: .75rem;
+}
+
+.atlas-card__facts {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.atlas-card__facts th {
+  font-weight: 400;
+  color: var(--atlas-muted);
+  padding: .0625rem .75rem .0625rem 0;
+  white-space: nowrap;
+  vertical-align: top;
+}
+
+.atlas-card__facts td {
+  padding: .0625rem 0;
+}
+
+/* The address is the one fact worth wrapping; everything else reads better on one line. */
+.atlas-card__facts tr:last-child td {
+  max-width: 14rem;
+}
+
+.atlas-card__links {
+  margin-top: .25rem;
+  color: var(--atlas-muted);
+}
+
+.atlas-card__action {
+  margin-top: .375rem;
+  padding-top: .3125rem;
+  border-top: 1px solid var(--atlas-border);
+  font-size: .75rem;
+  color: var(--atlas-accent);
+}
+
+/* ---- card headers ----
+ *
+ * NetBox's .card-header is a plain block, so a heading and its qualifier ran together as
+ * "Port allocationwhole rack". Laying the header out as a row separates them and keeps the
+ * qualifier on the right where it reads as a subtitle rather than as part of the title. */
+.card-header:has(.atlas-scope),
+.card-header:has(.badge) {
+  display: flex;
+  align-items: baseline;
+  gap: .5rem;
+  flex-wrap: wrap;
+}
+
+.atlas-scope {
+  margin-left: auto;
+  font-size: .8125rem;
+  font-weight: 400;
+  color: var(--atlas-muted);
+  text-align: right;
+}
+
+/* ==========================================================================
+ * 2. The floor plan
+ * ======================================================================= */
+
+/* The drawing takes the card's width, and the height the room's own shape gives it, up to most
+ * of the window. A wide room is drawn at full width with no empty band above and below it; a
+ * tall room is capped at the window and the zoom controls enlarge it from there, so a tall
+ * room or a thirty-metre hall is read at the scale its racks need. Zooming keeps the room's
+ * proportions, so the box does not change size while zoomed. */
+.atlas-plan {
+  position: relative;
+}
+
+.atlas-floor {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 72vh;
+  min-height: 12rem;
+  touch-action: none;
+}
+
+.atlas-floor.is-zoomed {
+  cursor: grab;
+}
+
+.atlas-floor.is-panning {
+  cursor: grabbing;
+}
+
+/* Bottom right, clear of the scale rules along the top and left edges. */
+.atlas-zoom {
+  position: absolute;
+  right: .5rem;
+  bottom: .5rem;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+}
+
+.atlas-zoom .btn {
+  background: var(--atlas-bg);
+}
+
+.atlas-hover {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.atlas-room {
+  fill: rgba(127, 127, 127, .07);
+  stroke: currentColor;
+  stroke-opacity: .35;
+  stroke-width: 3;
+}
+
+.atlas-grid-line {
+  stroke: currentColor;
+  stroke-opacity: .13;
+  stroke-width: 2;
+}
+
+/* The scale along the top and left edges. Quiet: it is the paper the plan is drawn on, not
+   part of the plan. Tabular figures so 10 and 12 sit in the same column. */
+.atlas-scale-rule text {
+  fill: currentColor;
+  opacity: .55;
+  font-variant-numeric: tabular-nums;
+}
+
+.atlas-scale-rule line {
+  stroke: currentColor;
+  stroke-opacity: .4;
+  stroke-width: 2;
+}
+
+.atlas-scale-rule__unit {
+  opacity: .4;
+  font-style: italic;
+}
+
+/* A background layer is under the room's own drawing, so it must not compete with it: no
+   stroke, no interaction, and the opacity is the layer's own. */
+.atlas-layers image {
+  pointer-events: none;
+}
+
+/* ---- racks on the plan ---- */
+
+.atlas-rack-body {
+  fill: var(--atlas-neutral);
+  stroke: rgba(0, 0, 0, .45);
+  stroke-width: 2;
+}
+
+/* A gauged rack shows its magnitude in the bar at its foot, so the body backs off to let the
+   name and the number read. An ungauged one has nothing but its colour to say with, and keeps
+   it at full strength. */
+.atlas-rack--gauged .atlas-rack-body {
+  fill-opacity: .3;
+}
+
+/* Dashed rather than merely grey: a rack the overlay knows nothing about must not be mistaken
+   for one it has measured and found unremarkable. */
+.atlas-rack--nodata .atlas-rack-body {
+  stroke-dasharray: 10 6;
+}
+
+.atlas-rack-front {
+  fill: rgba(0, 0, 0, .38);
+}
+
+.atlas-rack-gauge__track {
+  fill: currentColor;
+  fill-opacity: .12;
+}
+
+.atlas-rack-gauge__fill {
+  fill-opacity: .95;
+}
+
+.atlas-rack-label,
+.atlas-rack-value {
+  /* The size comes from the drawing, not from here: it is set once per floor so every name on
+     one plan is the same size. This is only the fallback for a rack that somehow has none.
+
+     The halo has to stay well under the width that would swallow the letterforms: a room draws
+     at roughly half scale, so 2 here is about one pixel, where the 5 it was came out near
+     three and turned every label to mush. */
+  font-size: 19px;
+  fill: currentColor;
+  paint-order: stroke;
+  stroke: var(--atlas-bg);
+  stroke-width: 2;
+  pointer-events: none;
+  user-select: none;
+}
+
+.atlas-rack-label {
+  font-weight: 600;
+}
+
+.atlas-rack-value {
+  font-weight: 500;
+  opacity: .75;
+  font-variant-numeric: tabular-nums;
+}
+
+.atlas-rack {
+  cursor: pointer;
+}
+
+.atlas-rack:hover .atlas-rack-body {
+  stroke: var(--atlas-accent);
+  stroke-width: 5;
+}
+
+/* A rack on the floor page is a link, and the link colour must not reach its name: the label
+   is `fill: currentColor`, and inside an `<a>` that was the theme's link colour on a coloured
+   cabinet. Inherited, it is the page's text colour, as on the site page where it is no link. */
+.atlas-rack-link,
+.atlas-rack-link:hover {
+  color: inherit;
+}
+
+/* The focus ring is drawn on the cabinet rather than as an outline, which on an SVG link is a
+   box around the whole rotated group. */
+.atlas-rack-link:focus {
+  outline: none;
+}
+
+.atlas-rack-link:focus-visible .atlas-rack-body {
+  stroke: var(--atlas-accent);
+  stroke-width: 5;
+}
+
+/* ---- the rack table under the plan ---- */
+
+/* NetBox writes table headings in capitals; a sort button does not inherit that, so without this
+   the one heading that does not sort (Tags) was the only one in capitals. As specific as
+   NetBox's own `.table thead th`, so it wins by coming later. */
+.table.atlas-rack-table thead th {
+  text-transform: none;
+}
+
+.atlas-rack-table th[data-sort] {
+  white-space: nowrap;
+}
+
+/* A heading that sorts is a button, so the keyboard reaches it; it looks like the heading. */
+.atlas-sort {
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.atlas-sort:focus-visible {
+  outline: 2px solid var(--atlas-accent);
+  outline-offset: 2px;
+}
+
+.atlas-rack-table th[aria-sort="ascending"]::after {
+  content: " \25B2";
+  font-size: .625rem;
+}
+
+.atlas-rack-table th[aria-sort="descending"]::after {
+  content: " \25BC";
+  font-size: .625rem;
+}
+
+.atlas-rack-table td.atlas-num,
+.atlas-rack-table th.atlas-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A table row narrowed out by the legend or the search box leaves the table. On the plan a
+   rack recedes to keep its place in the room; a row has no place to keep. */
+.atlas-rack-table tr.is-filtered,
+.atlas-rack-table tr.is-searched-out,
+.atlas-rack-table tr.is-unfocused {
+  display: none;
+}
+
+/* The search box narrows the plan the same way a legend band does, and by a different class, so
+   the two compose without either having to know about the other. */
+.atlas-floor--filtering .atlas-rack {
+  transition: opacity .12s ease;
+}
+
+.atlas-rack.is-searched-out,
+.atlas-device.is-searched-out,
+.atlas-rack.is-unfocused,
+.atlas-device.is-unfocused {
+  opacity: .14;
+  pointer-events: none;
+}
+
+/* ---- cabling across the floor ---- */
+
+/* Round caps so a run reads as a bundle arriving at a cabinet rather than a beam ending in a
+   corner, and translucent so crossing runs stay countable. */
+.atlas-floor-run {
+  stroke: var(--atlas-kind-interface, #4c8dbf);
+  stroke-opacity: .45;
+  stroke-linecap: round;
+  shape-rendering: geometricPrecision;
+}
+
+.atlas-floor-run:hover {
+  stroke-opacity: .95;
+}
+
+/* An exit is dashed because it does not end where it is drawn: the far end is somewhere off
+   this plan, and a solid line to a wall would claim otherwise. */
+.atlas-floor-exit line {
+  stroke-dasharray: 14 10;
+  stroke-linecap: butt;
+  stroke-opacity: .85;
+  shape-rendering: geometricPrecision;
+}
+
+.atlas-floor-exit circle {
+  fill-opacity: .9;
+  stroke: var(--atlas-bg);
+  stroke-width: 2;
+}
+
+.atlas-floor-exit:hover line,
+.atlas-floor-exit:hover circle {
+  stroke-opacity: 1;
+  fill-opacity: 1;
+}
+
+/* ==========================================================================
+ * 3. The placement editor
+ * ======================================================================= */
+
+.atlas-floor--editing .atlas-rack {
+  cursor: grab;
+}
+
+.atlas-floor--editing .atlas-rack.is-dragging {
+  cursor: grabbing;
+}
+
+.atlas-rack.is-selected .atlas-rack-body {
+  stroke: var(--atlas-accent);
+  stroke-width: 6;
+}
+
+.atlas-rack.is-dirty .atlas-rack-body {
+  stroke: var(--atlas-warning);
+  stroke-width: 6;
+}
+
+.atlas-unplaced {
+  max-height: 26rem;
+  overflow-y: auto;
+}
+
+.atlas-unplaced__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  padding: .375rem .5rem;
+  border-radius: .25rem;
+  cursor: pointer;
+}
+
+.atlas-unplaced__item:hover {
+  background: rgba(127, 127, 127, .15);
+}
+
+.atlas-unplaced__item.is-selected {
+  background: var(--atlas-accent);
+  color: var(--atlas-on-accent);
+}
+
+.atlas-editor-status {
+  min-height: 1.5rem;
+  font-size: .875rem;
+}
+
+/* ==========================================================================
+ * 4. The rack elevation
+ * ======================================================================= */
+
+/* Sized by width, and as tall as the rack is.
+ *
+ * Fitting a whole cabinet into the viewport height sounds right and reads badly: a 48U rack
+ * squeezed into 660 pixels gives each unit 13 of them, and a 1U label is then too small to
+ * read. So the drawing takes the width it has and runs to whatever height that implies.
+ *
+ * It used to run to that height inside a capped, scrolling frame, which put a scrollbar inside
+ * a card on a page that already had one: two scrollbars for one drawing, and the outer one
+ * moving the card past a view of the rack that had not moved. The card grows with the drawing
+ * instead, and the page scrolls, which is the one scrollbar the reader already expected.
+ */
+.atlas-elevation-frame {
+  position: relative;
+}
+
+/* How big a rack unit is, expressed as a width.
+ *
+ * The viewBox is 448 wide whatever the rack, because it holds two cabinets, the gap between
+ * them and the cable channel; only its height grows with the unit count. So the rendered width
+ * fixes the height of one U outright:
+ *
+ *     pixels per U = rendered width / 448 * 15
+ *
+ * and a cap on the width is really a cap on how tall a 48U cabinet comes out. 37rem is about
+ * 20 px per unit, which is a little denser than the 22 px NetBox draws its own elevation at, so
+ * a rack shows slightly more of itself here than on the page next door while a 1U label stays
+ * readable. Raise the cap for a bigger drawing and less of it on screen.
+ *
+ * Without a cap the drawing takes the column, and a column on a 34-inch screen is wide: it came
+ * out 1518 px across and 2529 px tall, which is fourteen units of a rack per screen. That is
+ * what this rule is for, and it is worth restating because losing it does not look like a
+ * missing rule, it looks like a drawing somebody deliberately made enormous. */
+.atlas-elevation {
+  display: block;
+  width: 100%;
+  max-width: 37rem;
+  margin: 0 auto;
+  height: auto;
+}
+
+.atlas-cabinet {
+  fill: rgba(127, 127, 127, .1);
+  stroke: currentColor;
+  stroke-opacity: .35;
+  stroke-width: 2;
+}
+
+/* The labels round the cabinet are quieter than the devices but must still read: every one of
+   them is held to at least 4.5:1 against the page, the WCAG AA level for text this small. At
+   the half opacity they had, "Front" and the free-space labels measured 2.6:1 and 2.3:1. */
+.atlas-face-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  fill: currentColor;
+  opacity: .8;
+}
+
+.atlas-ruler text {
+  font-size: 9px;
+  fill: currentColor;
+  opacity: .8;
+  /* Numbers in a column, so a 10 and a 9 line up rather than drifting. */
+  font-variant-numeric: tabular-nums;
+}
+
+.atlas-ruler line {
+  stroke: currentColor;
+  stroke-opacity: .12;
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+/* ---- free space ----
+ *
+ * The empty two thirds of a half-filled cabinet was drawn as nothing at all, which is the one
+ * thing a rack drawing is asked about most: what will fit. A run of free units is now a band
+ * that says how tall it is, so "will a 4U chassis go in" is answered by reading rather than by
+ * counting rungs on the ruler. */
+.atlas-free rect {
+  fill: currentColor;
+  fill-opacity: .04;
+  stroke: currentColor;
+  stroke-opacity: .18;
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  shape-rendering: crispEdges;
+}
+
+.atlas-free text {
+  font-size: 9px;
+  fill: currentColor;
+  opacity: .75;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+/* ---- devices ---- */
+
+.atlas-device__body {
+  stroke: rgba(0, 0, 0, .45);
+  stroke-width: 1;
+}
+
+.atlas-device__label {
+  /* In viewBox units. The drawing is width-constrained, so on-screen text size is this times
+     the ratio of the rendered width to the viewBox width. 11 reads at about 8px on a 48U rack,
+     which is the smallest that stays legible. */
+  font-size: 11px;
+  font-weight: 600;
+  fill: #fff;
+  paint-order: stroke;
+  stroke: rgba(0, 0, 0, .45);
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+
+.atlas-device {
+  cursor: pointer;
+}
+
+.atlas-device:hover .atlas-device__body,
+.atlas-device:focus-visible .atlas-device__body {
+  stroke: var(--atlas-accent);
+  stroke-width: 3;
+}
+
+/* ---- ports ---- */
+
+.atlas-port {
+  fill: rgba(255, 255, 255, .28);
+}
+
+.atlas-port.is-connected {
+  cursor: pointer;
+}
+
+/* ---- reserved units ----
+ *
+ * Hatched rather than filled, because a reservation is a claim on empty space and a solid block
+ * would read as something mounted. */
+.atlas-reserved {
+  cursor: pointer;
+  pointer-events: all;
+}
+
+.atlas-reserved rect {
+  fill: rgba(201, 72, 63, .3);
+  stroke: rgba(201, 72, 63, .85);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+  shape-rendering: crispEdges;
+}
+
+.atlas-reserved:hover rect,
+.atlas-reserved:focus-visible rect {
+  fill: rgba(201, 72, 63, .42);
+}
+
+.atlas-reserved.is-selected rect {
+  fill: rgba(201, 72, 63, .5);
+  stroke-width: 2;
+  stroke-dasharray: none;
+}
+
+/* ---- cable runs in the channel ---- */
+
+.atlas-run path {
+  stroke-width: 2;
+  stroke-linecap: round;
+  opacity: .8;
+  fill: none;
+}
+
+/* ---- selection ----
+ * Three states: the thing you picked, the things it reaches, and everything else. Dimming
+ * rather than hiding, so the rest of the rack stays as context instead of vanishing. */
+
+.atlas-device.is-selected .atlas-device__body {
+  stroke: var(--atlas-accent);
+  stroke-width: 5;
+}
+
+.atlas-device.is-related .atlas-device__body {
+  stroke: var(--atlas-accent);
+  stroke-width: 3;
+  stroke-dasharray: 6 3;
+}
+
+.atlas-has-selection .atlas-device:not(.is-selected):not(.is-related) .atlas-device__body {
+  opacity: .35;
+}
+
+.atlas-port.is-selected,
+.atlas-port.is-related {
+  stroke: var(--atlas-accent);
+  stroke-width: 1.2;
+}
+
+.atlas-run.is-dimmed,
+.atlas-cable.is-dimmed {
+  opacity: .18;
+}
+
+.atlas-run.is-selected path {
+  stroke-width: 5;
+  opacity: 1;
+}
+
+.atlas-run.is-related path {
+  stroke-width: 3.5;
+  opacity: 1;
+}
+
+.atlas-cable.is-selected {
+  background: rgba(13, 110, 253, .18);
+}
+
+.atlas-cable.is-related {
+  background: rgba(127, 127, 127, .14);
+}
+
+.atlas-cable,
+.atlas-run,
+.atlas-device {
+  transition: opacity .12s ease;
+}
+
+/* ---- port allocation ---- */
+
+.atlas-alloc__row {
+  margin-bottom: .625rem;
+}
+
+.atlas-alloc__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: .5rem;
+  font-size: .8125rem;
+  margin-bottom: .1875rem;
+}
+
+.atlas-alloc__count {
+  color: var(--atlas-muted);
+  white-space: nowrap;
+}
+
+.atlas-alloc__bar {
+  height: .5rem;
+  border-radius: .25rem;
+  background: rgba(127, 127, 127, .22);
+  overflow: hidden;
+}
+
+.atlas-alloc__fill {
+  display: block;
+  height: 100%;
+}
+
+.atlas-alloc__fill--interface   { background: var(--atlas-kind-interface); }
+.atlas-alloc__fill--power       { background: var(--atlas-kind-power); }
+.atlas-alloc__fill--console     { background: var(--atlas-kind-console); }
+.atlas-alloc__fill--passthrough { background: var(--atlas-kind-passthrough); }
+
+/* ---- the cable list ---- */
+
+.atlas-cables__heading {
+  font-size: .75rem;
+  letter-spacing: .02em;
+  color: var(--atlas-muted);
+  margin: .75rem 0 .375rem;
+}
+
+.atlas-cables__heading:first-child {
+  margin-top: 0;
+}
+
+.atlas-cable {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .25rem .375rem;
+  border-radius: .25rem;
+  font-size: .8125rem;
+  cursor: pointer;
+}
+
+.atlas-cable__dot {
+  width: .625rem;
+  height: .625rem;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.atlas-cable__local {
+  flex: 0 0 auto;
+  font-family: var(--atlas-mono);
+}
+
+.atlas-cable__peer {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The "open this object" affordance on a list row. Hidden until the row is hovered or focused,
+   so a long list stays quiet, but always reachable from the keyboard. */
+.atlas-cable__open {
+  margin-left: auto;
+  flex: 0 0 auto;
+  opacity: 0;
+  color: var(--atlas-muted);
+  padding: 0 .125rem;
+}
+
+.atlas-cable:hover .atlas-cable__open,
+.atlas-cable__open:focus-visible {
+  opacity: 1;
+}
+
+.atlas-cable__open:hover {
+  color: var(--atlas-accent);
+}
+
+/* ---- per-device power ---- */
+
+.atlas-power {
+  margin-top: .875rem;
+  padding-top: .625rem;
+  border-top: 1px solid var(--atlas-border);
+}
+
+.atlas-power__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: .5rem;
+  font-size: .8125rem;
+  font-weight: 600;
+  margin-bottom: .3125rem;
+}
+
+.atlas-power__head .text-muted {
+  font-weight: 400;
+}
+
+.atlas-power__row {
+  display: flex;
+  align-items: center;
+  gap: .375rem;
+  font-size: .8125rem;
+  padding: .125rem 0;
+}
+
+.atlas-power__port {
+  font-family: var(--atlas-mono);
+  flex: 0 0 auto;
+}
+
+/* ==========================================================================
+ * 5. The world map
+ * ======================================================================= */
+
+/* The tile map. Height rather than aspect ratio: a map is a window onto the world, not a
+   picture with a fixed shape. */
+.atlas-map {
+  height: 72vh;
+  min-height: 22rem;
+  border-radius: .375rem;
+  z-index: 0;
+}
+
+/* What covers the map until it is drawn, and stays there with the reason when it cannot be:
+   no WebGL, or MapLibre could not be loaded. */
+.atlas-map-message {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+  color: var(--atlas-muted);
+  background: rgba(127, 127, 127, .07);
+  border-radius: .375rem;
+}
+
+.atlas-map-message[hidden] {
+  display: none;
+}
+
+.atlas-map-message.is-error {
+  color: var(--atlas-text);
+}
+
+/* MapLibre ships its own light panel styling, which reads as a white box in NetBox's dark
+   theme. These follow the theme instead. */
+.atlas-map .maplibregl-ctrl-attrib,
+.atlas-map .maplibregl-ctrl-group,
+.atlas-map .maplibregl-ctrl-group button {
+  background: var(--atlas-bg);
+  color: var(--atlas-text);
+}
+
+.atlas-map .maplibregl-ctrl-group button + button {
+  border-top-color: var(--atlas-border);
+}
+
+.atlas-map .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  filter: var(--atlas-ctrl-icon-filter, none);
+}
+
+[data-bs-theme='dark'] .atlas-map {
+  --atlas-ctrl-icon-filter: invert(1);
+}
+
+/* The basemap is muted in the style rather than here.
+ *
+ * It used to be a CSS filter on Leaflet's tile pane, with the markers and lines in panes above
+ * it that the filter did not reach. MapLibre draws everything into one canvas, so a filter here
+ * would grey out the circuits along with the roads under them. `raster-saturation` and the
+ * background layer beneath do the same job inside the renderer, where they apply to the tiles
+ * and to nothing else. */
+
+/* The line in a map tooltip that says what a click will do. Quieter than the name above it,
+   because it is guidance rather than data. */
+.atlas-tip-action {
+  opacity: .7;
+  font-size: .75rem;
+}
+
+/* ==========================================================================
+ * 6. The trace panel
+ * ======================================================================= */
+
+.atlas-hops {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.atlas-hop {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .3125rem .375rem .3125rem .5rem;
+  font-size: .8125rem;
+  border-left: 3px solid var(--atlas-neutral);
+  margin-bottom: .1875rem;
+  background: rgba(127, 127, 127, .07);
+  border-radius: 0 .25rem .25rem 0;
+}
+
+/* The border colour says what kind of hop it is, matching the cable colours in the drawing. */
+.atlas-hop--interface   { border-left-color: var(--atlas-kind-interface); }
+.atlas-hop--power       { border-left-color: var(--atlas-kind-power); }
+.atlas-hop--console     { border-left-color: var(--atlas-kind-console); }
+.atlas-hop--passthrough { border-left-color: var(--atlas-kind-passthrough); }
+.atlas-hop--circuit     { border-left-color: var(--atlas-kind-circuit); }
+
+.atlas-hop__index {
+  flex: 0 0 auto;
+  width: 1.25rem;
+  text-align: center;
+  color: var(--atlas-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.atlas-hop__from,
+.atlas-hop__to {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.atlas-hop__from {
+  font-family: var(--atlas-mono);
+}
+
+/* ==========================================================================
+ * Crispness, and motion
+ *
+ * Axis-aligned edges are snapped to the pixel grid; curves and diagonals are not, because
+ * crispEdges turns off anti-aliasing and a bowed cable would come out as a staircase.
+ * ======================================================================= */
+
+.atlas-cabinet,
+.atlas-device__body,
+.atlas-port,
+.atlas-rack-body,
+.atlas-rack-front,
+.atlas-room {
+  shape-rendering: crispEdges;
+}
+
+.atlas-run path,
+.atlas-rack-gauge__fill {
+  shape-rendering: geometricPrecision;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .atlas-rack,
+  .atlas-device,
+  .atlas-reserved,
+  .atlas-run,
+  .atlas-cable {
+    transition: none;
+  }
+}
+
+/* ---- the world map's furniture ----
+ *
+ * The map is the one drawing on its page that wants the whole width, and it used to give a
+ * third of it away to a permanent column of lists nobody reads twice a day. The legends stayed,
+ * because a legend here is a filter and filters are used constantly; they moved onto the map.
+ * The lists went behind two buttons in the toolbar, which keep their counts so the number the
+ * column was really conveying at a glance is still there while it is shut. */
+.atlas-stage {
+  position: relative;
+}
+
+.atlas-map-legends {
+  position: absolute;
+  top: .75rem;
+  right: .75rem;
+  z-index: 5; /* over the map canvas and its controls */
+  max-width: 15rem;
+  border: 1px solid var(--atlas-border);
+  border-radius: .375rem;
+  background: color-mix(in srgb, var(--atlas-bg) 92%, transparent);
+  backdrop-filter: blur(3px);
+  box-shadow: 0 .125rem .5rem rgba(0, 0, 0, .12);
+}
+
+.atlas-map-legends__body {
+  padding: .5rem .625rem;
+  max-height: min(60vh, 26rem);
+  overflow-y: auto;
+}
+
+/* Collapsed, the panel is just its own handle: on a small screen, or a map whose interesting
+   corner is behind it, the legend has to be able to get out of the way. */
+.atlas-map-legends.is-collapsed .atlas-map-legends__body {
+  display: none;
+}
+
+.atlas-map-legends.is-collapsed .atlas-map-legends__toggle i {
+  transform: rotate(180deg);
+}
+
+.atlas-map-legends__toggle {
+  position: absolute;
+  top: .125rem;
+  right: .125rem;
+  padding: .125rem .25rem;
+  border: 0;
+  border-radius: .25rem;
+  background: none;
+  color: var(--atlas-muted);
+  line-height: 1;
+}
+
+.atlas-map-legends__toggle:hover {
+  background: var(--atlas-subtle-bg);
+  color: var(--atlas-text);
+}
+
+.atlas-map-legend + .atlas-map-legend {
+  margin-top: .5rem;
+  padding-top: .5rem;
+  border-top: 1px solid var(--atlas-border);
+}
+
+.atlas-map-legend__title {
+  margin: 0 1.25rem .25rem 0;
+  font-size: .75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--atlas-muted);
+}
+
+
+/* ---- the finders ----
+ *
+ * A list that hangs under the button that opens it. It used to be a column beside the map,
+ * which cost a third of the width of the one drawing that wants all of it, and then a panel
+ * below the map, which put it outside the corner of the eye you were using and made you give
+ * up the map to reach it.
+ *
+ * Over the map, not pushing it: opening a list must not move the thing you are reading. */
+.atlas-finder {
+  position: relative;
+}
+
+.atlas-finder__caret {
+  margin-left: .125rem;
+  transition: transform .12s ease;
+}
+
+.atlas-finder__toggle[aria-expanded='true'] {
+  background: var(--atlas-subtle-bg-strong);
+  border-color: var(--atlas-muted);
+}
+
+.atlas-finder__toggle[aria-expanded='true'] .atlas-finder__caret {
+  transform: rotate(180deg);
+}
+
+/* Marked while the group is narrowed, so the button says so without the script knowing which
+   element carries the message. */
+.atlas-finder.is-picking .atlas-finder__toggle {
+  border-color: var(--atlas-accent);
+  color: var(--atlas-accent);
+}
+
+.atlas-finder__panel {
+  position: absolute;
+  top: calc(100% + .25rem);
+  left: 0;
+  z-index: 10; /* over the map canvas and the legends that float on it */
+  width: 22rem;
+  max-width: 90vw;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--atlas-border);
+  border-radius: .375rem;
+  background: var(--atlas-bg);
+  box-shadow: 0 .5rem 1rem rgba(0, 0, 0, .15);
+}
+
+/* Right-aligned when the button is near the right edge, so the panel stays on screen. */
+.atlas-finder--right .atlas-finder__panel {
+  left: auto;
+  right: 0;
+}
+
+.atlas-finder__search {
+  display: flex;
+  align-items: center;
+  gap: .375rem;
+  padding: .375rem .625rem;
+  border-bottom: 1px solid var(--atlas-border);
+  color: var(--atlas-muted);
+}
+
+.atlas-finder__search input {
+  flex: 1;
+  border: 0;
+  background: none;
+  color: var(--atlas-text);
+  outline: none;
+  font-size: .8125rem;
+  padding: .125rem 0;
+}
+
+.atlas-finder__list {
+  overflow-y: auto;
+  max-height: min(22rem, 45vh);
+  padding: .25rem;
+}
+
+.atlas-finder__row {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .25rem .375rem;
+  border-radius: .25rem;
+  cursor: pointer;
+  font-size: .8125rem;
+}
+
+.atlas-finder__row:hover,
+.atlas-finder__row:focus-visible {
+  background: var(--atlas-subtle-bg);
+  outline: none;
+}
+
+/* The tick. Drawn rather than an <input>, because the whole row is the target and a real
+   checkbox inside it would give the row a second, smaller one that behaves differently. */
+.atlas-finder__tick {
+  flex: 0 0 auto;
+  width: .875rem;
+  height: .875rem;
+  border: 1px solid var(--atlas-border);
+  border-radius: .1875rem;
+  position: relative;
+}
+
+.atlas-finder__row[aria-checked='true'] .atlas-finder__tick {
+  background: var(--atlas-accent);
+  border-color: var(--atlas-accent);
+}
+
+.atlas-finder__row[aria-checked='true'] .atlas-finder__tick::after {
+  content: '';
+  position: absolute;
+  left: .25rem;
+  top: .0625rem;
+  width: .25rem;
+  height: .5rem;
+  border: solid var(--atlas-on-accent);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.atlas-finder__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.atlas-finder__meta {
+  flex: 0 0 auto;
+}
+
+/* Ruled out by the search box. Hidden rather than dimmed: this list is a way to find one row
+   among many, and a dimmed row is still a row to read past. */
+.atlas-finder__row.is-hidden {
+  display: none;
+}
+
+.atlas-finder__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  padding: .375rem .625rem;
+  border-top: 1px solid var(--atlas-border);
+  font-size: .75rem;
+  color: var(--atlas-muted);
+}
+
+/* A cable outside the ticked set. Its own class, never `is-filtered`, because the
+   legend owns that one and the two narrowings have to compose rather than overwrite.
+
+   The drawing only. An unticked row in the finder is the next thing you are going to tick, and
+   fading it made the list you are reading from the hardest part of the panel to read. */
+.atlas-run.is-unfocused,
+.atlas-cable.is-unfocused {
+  opacity: .15;
+}
+
+/* A cable narrowed out of the drawing is still a row you can read and click in the list, the
+   way an unticked row in the finder is. Only the drawing recedes. */
+.atlas-cable.is-unfocused {
+  opacity: .4;
+}
+
+.atlas-ungeocoded {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .25rem 1.25rem;
+}
+
+/* The rooms in a site: an index of plans, not a list of names.
+
+   A grid that gives each room a card of its own, so four rooms are compared side by side
+   rather than scrolled through. The plan inside is the real layout at thumbnail height, which
+   is what makes a half-empty hall look half empty here as well as on its own page. */
+.atlas-rooms {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(22rem, 1fr));
+  gap: 1rem;
+  margin-top: .75rem;
+}
+
+.atlas-room {
+  border: 1px solid var(--tblr-border-color);
+  border-radius: var(--tblr-border-radius);
+  padding: .75rem;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+
+.atlas-room__head {
+  display: flex;
+  align-items: baseline;
+  gap: .5rem;
+  text-decoration: none;
+}
+
+.atlas-room__name {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.atlas-room__where {
+  font-size: .8125rem;
+  color: var(--tblr-secondary);
+}
+
+/* The thumbnail overrides the full-page plan height. Everything else about the drawing is
+   the same markup, so a room cannot be drawn one way here and another way there. */
+/* The thumbnail is a link, and the drawing inside it is `currentColor` throughout: without this
+   the rack names, the room outline and the scale all took the theme's link colour. */
+.atlas-room__plan,
+.atlas-room__plan:hover {
+  display: block;
+  color: inherit;
+}
+
+.atlas-room__plan .atlas-floor {
+  height: 16rem;
+  min-height: 0;
+  margin-inline: auto;
+}
+
+.atlas-room__empty,
+.atlas-room__unplaced {
+  margin: 0;
+}
+
+.atlas-room__unplaced {
+  margin-top: 1rem;
+}
+
+/* The finder above the cabling list. Full width of the card, so its panel has room to show a
+   cable's two ends without wrapping them. */
+.atlas-cables__controls {
+  margin-bottom: .5rem;
+}
+
+.atlas-cables__controls .atlas-finder,
+.atlas-cables__controls .atlas-finder__toggle {
+  width: 100%;
+}
+
+.atlas-cables__controls .atlas-finder__toggle {
+  justify-content: flex-start;
+}
+
+.atlas-cables__controls .atlas-finder__panel {
+  width: 100%;
+  min-width: 0;
+}

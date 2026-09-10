@@ -1,0 +1,308 @@
+{% extends 'generic/object.html' %}
+{% load static %}
+{% load atlas %}
+{% load helpers %}
+
+{% block head %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% atlas_static 'netbox_atlas/atlas.css' %}">
+  {% include 'netbox_atlas/inc/palette.html' %}
+{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col col-md-8">
+    <div class="card">
+      <div class="card-body">
+
+        <div class="atlas-toolbar">
+          {% include 'netbox_atlas/inc/levels.html' with site=object.site floor=floor rack=object %}
+          <div class="btn-group btn-group-sm" role="group" aria-label="Colour the devices by">
+            {% for o in device_overlays %}
+              <a href="?colour={{ o.name }}"
+                 class="btn btn-outline-primary{% if device_overlay and o.name == device_overlay.name %} active{% endif %}"
+                 {% if device_overlay and o.name == device_overlay.name %}aria-current="true"{% endif %}
+                 title="{{ o.description }}">{{ o.label }}</a>
+            {% endfor %}
+          </div>
+          {% if elevation.devices or elevation.rear_devices %}
+            {% comment %}
+            The same control the floor has, over the same problem. Reading a name off a 48U
+            cabinet by eye is what a room of fifty cabinets is at the other zoom. Dims the rest
+            rather than hiding it, so a device keeps its place in the rack.
+            {% endcomment %}
+            <span class="atlas-toolbar__spacer"></span>
+            {% if device_tags %}
+              {% include 'netbox_atlas/inc/finder.html' with group='device-tags' key='tags' noun='tag' label='Tags' icon='tag-outline' rows=device_tags row_template='netbox_atlas/inc/finder_tag.html' %}
+            {% endif %}
+            {% include 'netbox_atlas/inc/field_finders.html' %}
+            <label class="atlas-find">
+              <i class="mdi mdi-magnify" aria-hidden="true"></i>
+              <input type="search" data-atlas-find placeholder="Name or asset tag" aria-label="Find a device or asset tag"
+                     autocomplete="off" spellcheck="false">
+            </label>
+          {% else %}
+            <span class="atlas-toolbar__spacer"></span>
+          {% endif %}
+          {% include 'netbox_atlas/inc/help.html' with text='Click a device to show what it is cabled to. Double-click a device to open it. Click a cable or a port to trace it. A full-depth device is selected on both faces. The find box matches a name or an asset tag; Tags narrows to the devices with any tag you tick. Click legend bands to filter; you can pick several. Escape clears.' %}
+        </div>
+
+        {% comment %}
+        The four figures somebody walks up to a rack with. They were all on the page already,
+        spread between a line of muted text, a badge halfway down a card, and a panel you had
+        to select a device to open, which meant a reader wanting to know whether this cabinet
+        had room left with none of them.
+        {% endcomment %}
+        {% include 'netbox_atlas/inc/stats.html' with stats=stats %}
+
+        {% comment %}
+        The elevation and its cabling are one drawing, not two. A cable has to start on the
+        port it leaves, so the channel down the right shares this coordinate space.
+
+        Every element that can be selected carries data-device-id, data-cable-id or both. The
+        script drives selection off those alone, so nothing here has to know what highlighting
+        looks like.
+        {% endcomment %}
+        <div class="atlas-elevation-frame">
+        <svg class="atlas-elevation"
+             viewBox="-26 -16 {{ elevation.total_width|add:34 }} {{ elevation.height|add:26 }}"
+             preserveAspectRatio="xMidYMin meet">
+
+          <g class="atlas-ruler">
+            {% for unit, y in elevation.unit_labels %}
+              <text x="-8" y="{{ y|add:15 }}" text-anchor="end">{{ unit }}</text>
+              <line x1="0" y1="{{ y }}" x2="{{ elevation.width }}" y2="{{ y }}"/>
+              <line x1="{{ elevation.rear_x }}" y1="{{ y }}" x2="{{ elevation.channel_x }}" y2="{{ y }}"/>
+            {% endfor %}
+          </g>
+
+          {% include 'netbox_atlas/inc/cabinet.html' with devices=elevation.devices offset=0 label='Front' %}
+          {% include 'netbox_atlas/inc/cabinet.html' with devices=elevation.rear_devices offset=elevation.rear_x label='Rear' %}
+
+          {% comment %}
+          Cables route in the channel to the right of both cabinets, because a run belongs to
+          the rack rather than to one face of it. A cable that stays in the rack is a bracket
+          joining two devices; one that leaves is a stub with a dot, and the list names where
+          it goes. Stubs start on their device's row and lean apart, because a switch's
+          uplinks all leave from the same row and drawn flat they would be one line.
+          {% endcomment %}
+          <g class="atlas-runs" transform="translate({{ elevation.channel_x }} 0)">
+            {% for run in elevation.runs %}
+              <g class="atlas-run atlas-run--{{ run.kind }}" data-cable-id="{{ run.cable.pk }}"
+                 data-atlas-filterable="cables" data-band="{{ run.colour }}"
+                 data-device-id="{{ run.local_device.pk }}"
+                 data-termination="{{ run.termination_type }}/{{ run.termination_id }}"
+                 {% if run.peer_device %}data-peer-device-id="{{ run.peer_device.pk }}"{% endif %}
+                 tabindex="0">
+                <title>{{ run.local_name }} &#8594; {{ run.peer_name }}</title>
+                {% if run.internal %}
+                  <path d="M 0 {{ run.from_y }}
+                           H {{ forloop.counter|add:14 }}
+                           V {{ run.to_y }}
+                           H 0"
+                        style="stroke: {{ run.colour }};" fill="none"/>
+                {% else %}
+                  <path d="M 0 {{ run.from_y }} L {{ elevation.exit_bend }} {{ run.exit_y }} H {{ elevation.channel }}"
+                        style="stroke: {{ run.colour }};" fill="none"/>
+                  <circle cx="{{ elevation.channel }}" cy="{{ run.exit_y }}" r="4"
+                          style="fill: {{ run.colour }};"/>
+                {% endif %}
+              </g>
+            {% endfor %}
+          </g>
+        </svg>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="col col-md-4">
+
+    {% comment %}
+    The allocation panel answers "what is left in this rack", and narrows to one device when
+    one is selected. Both states are rendered up front and the script switches between them,
+    so selecting a device costs no request.
+    {% endcomment %}
+    {% if device_overlay %}
+      <div class="card">
+        <h2 class="card-header">{{ device_overlay.label }}</h2>
+        <div class="card-body">
+          {% include 'netbox_atlas/inc/legend.html' with legend=device_legend reservations=elevation.reservations filter='devices' %}
+        </div>
+      </div>
+    {% endif %}
+
+    <div class="card">
+      <h2 class="card-header">
+        <span>Port allocation</span>
+        <span class="atlas-scope" data-atlas-scope>whole rack</span>
+      </h2>
+      <div class="card-body">
+        <div class="atlas-alloc" data-atlas-alloc="rack">
+          {% for group in rack_allocation %}
+            {% include 'netbox_atlas/inc/alloc_row.html' with group=group %}
+          {% empty %}
+            <p class="text-muted mb-0">Nothing in this rack has any ports recorded.</p>
+          {% endfor %}
+        </div>
+        {% for m in mounted_devices %}
+          <div class="atlas-alloc" data-atlas-alloc="{{ m.device.pk }}" hidden>
+            {% for group in m.port_groups %}
+              {% include 'netbox_atlas/inc/alloc_row.html' with group=group %}
+            {% empty %}
+              <p class="text-muted mb-0">{{ m.label }} has no ports recorded.</p>
+            {% endfor %}
+
+            {% if m.power.has_data %}
+              {% comment %}
+              Power sits with the ports rather than in a card of its own, because "what is in
+              this device and what feeds it" is one question asked at one moment: when you
+              click the device.
+              {% endcomment %}
+              <div class="atlas-power">
+                <div class="atlas-power__head">
+                  <span>Power</span>
+                  <span class="text-muted">
+                    {{ m.power.allocated_watts|floatformat:0 }} W allocated
+                    {% if m.power.maximum_watts %}of {{ m.power.maximum_watts|floatformat:0 }} W{% endif %}
+                  </span>
+                </div>
+                {% for supply in m.power.feeds %}
+                  <div class="atlas-power__row">
+                    <span class="atlas-power__port">{{ supply.port }}</span>
+                    <i class="mdi mdi-arrow-right text-muted"></i>
+                    <span>
+                      {% if supply.outlet %}{{ supply.outlet }}{% endif %}
+                      {% if supply.feed %}<span class="badge text-bg-secondary">{{ supply.feed }}</span>{% endif %}
+                    </span>
+                  </div>
+                {% endfor %}
+                {% if m.power.unconnected %}
+                  <div class="atlas-power__row text-muted">
+                    {{ m.power.unconnected }} power port{{ m.power.unconnected|pluralize }} not cabled
+                  </div>
+                {% endif %}
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    {% for band in elevation.reservations %}
+      {% comment %}
+      One panel per reservation, rendered up front and shown when its band is selected, the
+      same pattern as the port allocation and the per-device cabling. Reserved space is the
+      one thing a rack drawing can be wrong about in a way that costs money, so what it says
+      and who claimed it should be one click away rather than three.
+      {% endcomment %}
+      <div class="card" data-atlas-reservation="{{ band.reservation.pk }}" hidden>
+        <h2 class="card-header">
+          <span>{{ band.label }}</span>
+          <span class="atlas-scope">
+            <a href="{{ band.reservation.get_absolute_url }}">Open reservation</a>
+          </span>
+        </h2>
+        <table class="table table-hover attr-table">
+          {% if band.reservation.description %}
+            <tr><th scope="row">Description</th><td>{{ band.reservation.description }}</td></tr>
+          {% endif %}
+          <tr><th scope="row">Units</th><td>{{ band.reservation.units|join:", " }}</td></tr>
+          <tr><th scope="row">Status</th><td>{{ band.reservation.get_status_display }}</td></tr>
+          <tr><th scope="row">Reserved by</th><td>{{ band.reservation.user|placeholder }}</td></tr>
+          <tr><th scope="row">Tenant</th><td>{{ band.reservation.tenant|linkify|placeholder }}</td></tr>
+          {% if band.reservation.comments %}
+            <tr><th scope="row">Comments</th><td>{{ band.reservation.comments }}</td></tr>
+          {% endif %}
+        </table>
+      </div>
+    {% endfor %}
+
+    <div class="card atlas-trace-card" data-atlas-trace-card hidden>
+      <h2 class="card-header">
+        <span>Path</span>
+        <span class="atlas-scope" data-atlas-trace-summary></span>
+      </h2>
+      <div class="card-body">
+        <div data-atlas-trace></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 class="card-header">
+        <span>Cabling</span>
+        <span class="badge text-bg-secondary ms-2"
+              data-atlas-cable-count="{{ elevation.runs|length }}">{{ elevation.runs|length }}</span>
+      </h2>
+      <div class="card-body atlas-cables">
+        {% comment %}
+        Two ways to narrow the same list, and they compose. The legend answers "which kind of
+        cable"; the finder answers "which of these exactly", which a rack of thirty-six rows
+        needs as much as the map's site list did. Both are the shared controls, so a band and a
+        tick narrow the drawing and this list without either knowing about the other.
+        {% endcomment %}
+        {% if elevation.runs %}
+          <div class="atlas-cables__controls">
+            {% include 'netbox_atlas/inc/finder.html' with group='cables' key='cableId' noun='cable' label='Find a cable' icon='cable-data' rows=elevation.runs row_template='netbox_atlas/inc/finder_cable.html' %}
+          </div>
+        {% endif %}
+
+        {% if cable_legend %}
+          {% include 'netbox_atlas/inc/legend.html' with legend=cable_legend filter='cables' %}
+        {% endif %}
+
+        {% comment %}
+        One block per device, plus the rack-wide list. The script shows whichever matches the
+        selection, so clicking a device narrows this card to that device rather than leaving
+        the whole rack on screen with most of it faded.
+        {% endcomment %}
+        {% for mounted, runs in runs_by_device %}
+          <div data-atlas-cabling="{{ mounted.device.pk }}" hidden>
+            {% include 'netbox_atlas/inc/device_cabling.html' with device=mounted.device runs=runs %}
+          </div>
+        {% endfor %}
+
+        {% comment %}
+        What the card shows with nothing selected. It used to be every cable in the rack, which
+        is fine at thirty-six and is a page nobody can read at four hundred. The cables are in
+        the finder above, where they can be searched; this says so rather than leaving a card
+        that reads as "no cabling recorded".
+        {% endcomment %}
+        <div data-atlas-cabling="rack">
+        {% if elevation.runs %}
+          <p class="text-muted small mb-0">
+            {{ external_runs|length }} leaving the rack, {{ internal_runs|length }} within it.
+          </p>
+        {% else %}
+          <p class="text-muted mb-0">Nothing in this rack has a cable recorded.</p>
+        {% endif %}
+        </div>
+      </div>
+    </div>
+
+    {% if elevation.unplaced %}
+      <div class="card">
+        <h2 class="card-header">In the rack, no U recorded</h2>
+        <div class="card-body">
+          {% comment %}
+          Stated rather than hidden. A device with no position cannot be drawn, and silently
+          leaving it out makes the elevation disagree with the rack's own device count.
+          {% endcomment %}
+          {% for device in elevation.unplaced %}
+            <div>{{ device|linkify }} <span class="text-muted small">{{ device.device_type }}</span></div>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<script type="application/json" id="atlas-rack-config">
+  {"traceUrl": "{% url 'plugins:netbox_atlas:trace' termination_type='APP.MODEL' termination_id=0 %}"}
+</script>
+<script src="{% atlas_static 'netbox_atlas/state.js' %}" defer></script>
+<script src="{% atlas_static 'netbox_atlas/legend.js' %}" defer></script>
+<script src="{% atlas_static 'netbox_atlas/finder.js' %}" defer></script>
+<script src="{% atlas_static 'netbox_atlas/rack.js' %}" defer></script>
+{% endblock %}

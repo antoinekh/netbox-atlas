@@ -1,0 +1,10 @@
+{% comment %}
+One tag in a Tags finder, in its own colour, with how many racks or devices on the page carry it.
+{% endcomment %}
+<div class="atlas-finder__row" data-atlas-pick="{{ row.tag.slug }}" data-atlas-name="{{ row.tag.name }}"
+     tabindex="0" role="checkbox" aria-checked="false">
+  <span class="atlas-finder__tick" aria-hidden="true"></span>
+  <span class="atlas-cable__dot" style="background: #{{ row.tag.color }};"></span>
+  <span class="atlas-finder__name">{{ row.tag.name }}</span>
+  <span class="text-muted small atlas-finder__meta">{{ row.count }}</span>
+</div>

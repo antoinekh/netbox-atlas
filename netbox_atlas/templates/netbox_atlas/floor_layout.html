@@ -1,0 +1,84 @@
+{% extends 'generic/object.html' %}
+{% load static %}
+{% load atlas %}
+
+{% block head %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% atlas_static 'netbox_atlas/atlas.css' %}">
+  {% include 'netbox_atlas/inc/palette.html' %}
+{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col col-md-9">
+    <div class="card">
+      <div class="card-body">
+
+        <div class="atlas-toolbar">
+          {% include 'netbox_atlas/inc/levels.html' with site=object.effective_site floor=object %}
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-atlas-rotate="-90" disabled>
+            <i class="mdi mdi-rotate-left"></i> Rotate left
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-atlas-rotate="90" disabled>
+            <i class="mdi mdi-rotate-right"></i> Rotate right
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-danger" data-atlas-remove disabled>
+            <i class="mdi mdi-close"></i> Remove
+          </button>
+          <span class="atlas-toolbar__spacer"></span>
+          <span class="atlas-editor-status text-muted" data-atlas-status></span>
+          {% include 'netbox_atlas/inc/help.html' with text='Drag a rack to move it. Click a rack to select it, then rotate or remove it. Pick a rack under Not yet placed, then click the floor to put it down. Ctrl + wheel zooms; drag the floor to move it when zoomed. Nothing is written until Save.' %}
+          <button type="button" class="btn btn-sm btn-primary" data-atlas-save disabled>
+            <i class="mdi mdi-content-save"></i> Save
+          </button>
+        </div>
+
+        <div class="atlas-plan">
+          {% include 'netbox_atlas/inc/zoom.html' %}
+          {% include 'netbox_atlas/inc/floor_svg.html' with floor=object zoomable=True %}
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="col col-md-3">
+    <div class="card">
+      <h2 class="card-header">Not yet placed</h2>
+      <div class="card-body atlas-unplaced" data-atlas-unplaced>
+        {% for rack, width, depth, estimated in unplaced_racks %}
+          <div class="atlas-unplaced__item" data-atlas-rack="{{ rack.pk }}" data-rack-name="{{ rack.name }}"
+               data-width="{{ width|stringformat:'.1f' }}" data-depth="{{ depth|stringformat:'.1f' }}">
+            <span>{{ rack.name }}</span>
+            <span class="text-muted small">{{ rack.u_height }}U</span>
+          </div>
+        {% empty %}
+          <p class="text-muted mb-0">Every rack at this site is placed.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% comment %}
+The editor is handed its ids and endpoints rather than deriving them, so the script stays free
+of URL construction and works unchanged if the API is mounted elsewhere.
+{% endcomment %}
+{% comment %}
+NetBox sets CSRF_COOKIE_HTTPONLY, so the editor cannot read the token from document.cookie and
+every write would come back 403. This renders the readable copy it reads instead.
+{% endcomment %}
+<form class="d-none">{% csrf_token %}</form>
+
+<script type="application/json" id="atlas-editor-config">
+  {
+    "floorId": {{ object.pk }},
+    "placementsUrl": "{% url 'plugins-api:netbox_atlas-api:rackplacement-list' %}",
+    "gridSize": {{ grid_size|default:0 }},
+    "canAdd": {{ can_add|yesno:"true,false" }},
+    "canDelete": {{ can_delete|yesno:"true,false" }}
+  }
+</script>
+<script src="{% atlas_static 'netbox_atlas/zoom.js' %}" defer></script>
+<script src="{% atlas_static 'netbox_atlas/editor.js' %}" defer></script>
+{% endblock %}

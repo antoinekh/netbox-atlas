@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 366" role="img" aria-labelledby="logo-title">
+  <title id="logo-title">netbox atlas</title>
+
+  <!--
+    The stack inside a viewfinder. The plugin does not hold the inventory, it looks at it, and
+    four brackets say "this is a view of" in a way no stack of planes can on its own. The
+    planes are stepped down to leave the brackets room to be brackets.
+  -->
+  <g fill="none" stroke="#00857d" stroke-width="16" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M40 76 V50 A16 16 0 0 1 56 34 H82"/>
+    <path d="M258 34 H284 A16 16 0 0 1 300 50 V76"/>
+    <path d="M300 290 V316 A16 16 0 0 1 284 332 H258"/>
+    <path d="M82 332 H56 A16 16 0 0 1 40 316 V290"/>
+  </g>
+  <path d="M 170 52 L 263 100 L 170 148 L 77 100 Z" fill="none" stroke="#001423" stroke-width="14" stroke-linejoin="round"/>
+  <path d="M 170 167 L 242 205 L 170 243 L 98 205 Z" fill="#00857d"/>
+  <path d="M 170 262 L 221 288 L 170 314 L 119 288 Z" fill="#001423"/>
+  <g font-family="system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-weight="700" letter-spacing="-3">
+    <text x="352" y="162" font-size="100" fill="#001423">netbox</text>
+    <text x="352" y="276" font-size="100" fill="#00857d">atlas</text>
+  </g>
+</svg>

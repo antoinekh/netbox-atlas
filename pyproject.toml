@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "netbox-atlas"
+version = "0.1.0"
+description = "World map, floor plans and rack elevations for NetBox, recoloured by power, cooling and space"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+# The file itself, so it travels with the distribution rather than only the identifier.
+license-files = ["LICENSE"]
+authors = [{ name = "Antoine Keranflech", email = "antoine.keranflech@gmail.com" }]
+keywords = [
+  "netbox", "netbox-plugin", "floorplan", "datacenter", "dcim",
+  "visualization", "capacity", "power", "cooling", "rack-elevation",
+]
+# No runtime dependencies. netbox-floorplan is read when present, as an importer only, and
+# nothing here fails without it.
+dependencies = []
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Framework :: Django",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Intended Audience :: System Administrators",
+  "Environment :: Web Environment",
+  "Topic :: System :: Networking",
+  "Topic :: System :: Systems Administration",
+]
+
+[project.urls]
+Homepage = "https://github.com/antoinekh/netbox-atlas"
+Source = "https://github.com/antoinekh/netbox-atlas"
+
+[tool.setuptools.packages.find]
+include = ["netbox_atlas*"]
+
+[tool.setuptools.package-data]
+netbox_atlas = ["templates/**/*.html", "static/**/*"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+# Django writes these; they are not hand-maintained source.
+extend-exclude = ["*/migrations/*"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "C4", "RUF"]
+
+[tool.ruff.format]
+quote-style = "single"
