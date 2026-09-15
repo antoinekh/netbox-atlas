@@ -20,7 +20,8 @@ What each part of the plugin holds. The Python modules are under `netbox_atlas/`
 | `state.js` | What a drawing is narrowed to, kept in the URL hash |
 | `zoom.js` | Zooming into a floor plan and moving round it, on the floor page and in the editor |
 | `floor.js` | The floor: hovering, selection, tracing, the rack table |
-| `rack3d.js` | The rack in Three.js: device images, cables, selection, the camera, and the message shown when it cannot be drawn |
+| `stage3d.js` | What every 3D drawing shares: loading Three.js, light and shadow, labels, the hover card and clicks, the camera and its views, and the message shown when it cannot be drawn |
+| `rack3d.js` | The rack on a 3D stage: device images, cables and selection |
 | `rack_panel.js` | The column beside the rack: port allocation, cabling, reservations and the traced path |
 | `world.js` | The MapLibre globe, and the message shown when it cannot be drawn |
 | `editor.js` | Dragging and saving a placement |

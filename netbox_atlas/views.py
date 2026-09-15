@@ -6,6 +6,8 @@ and rotate, and saves through the REST API rather than through a private endpoin
 so there is one way to write a placement and one set of permissions guarding it.
 """
 
+from dataclasses import dataclass
+
 from circuits.models import Circuit
 from dcim.models import Device, Rack, Site
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -41,6 +43,7 @@ from netbox_atlas.ports import rack_allocation
 from netbox_atlas.scene import build_scene
 from netbox_atlas.site_overlays import get_site_overlay, get_site_overlays
 from netbox_atlas.tags import tags_in_use
+from netbox_atlas.templatetags.atlas import atlas_static
 from netbox_atlas.tracing import trace_from
 from netbox_atlas.world import build_world
 
@@ -65,6 +68,35 @@ __all__ = (
     'TraceView',
     'WorldView',
 )
+
+
+@dataclass
+class ThreeStage:
+    """
+    What a page drawing on a 3D stage (`stage3d.js`) needs from the server.
+
+    `imports` is the page's import map: Three.js from the `three_base` setting, and the stage
+    module itself under a name, so the drawing imports it by that name and still gets the URL
+    that changes whenever the file does. `config` is merged into the drawing's own config, and
+    tells the stage whether it may load Three.js at all.
+    """
+
+    imports: dict[str, str]
+    config: dict
+
+
+def three_stage() -> ThreeStage:
+    # A copy of the `three` npm package, laid out as published. `three/addons/` is how Three.js's
+    # own examples import their controls, so the files under it load unchanged from any copy.
+    base = get_plugin_config('netbox_atlas', 'three_base') or ''
+    if base and not base.endswith('/'):
+        base = f'{base}/'
+    # The stage module is always mapped, even with Three.js turned off, so the page can still
+    # load it and say on the stage why nothing is drawn.
+    imports = {'atlas/stage3d': atlas_static('netbox_atlas/stage3d.js')}
+    if base:
+        imports.update({'three': f'{base}build/three.module.js', 'three/addons/': f'{base}examples/jsm/'})
+    return ThreeStage(imports=imports, config={'enabled': bool(base), 'threeBase': base})
 
 
 class FloorListView(generic.ObjectListView):
@@ -306,13 +338,7 @@ class RackAtlasView(generic.ObjectView):
             if run.peer_device is not None:
                 runs_by_device.setdefault(run.peer_device.pk, []).append(run)
 
-        # Where the browser loads Three.js from, as an import map, so a deployment can serve its
-        # own copy the way it can serve its own MapLibre. `three/addons/` is how Three.js's own
-        # examples import their controls, so the files under it load unchanged from any copy of
-        # the package.
-        three_base = get_plugin_config('netbox_atlas', 'three_base') or ''
-        if three_base and not three_base.endswith('/'):
-            three_base = f'{three_base}/'
+        stage = three_stage()
 
         return {
             'elevation': elevation,
@@ -330,14 +356,9 @@ class RackAtlasView(generic.ObjectView):
             'cable_legend': kind_legend(elevation.runs),
             'internal_runs': [r for r in elevation.runs if r.internal],
             'external_runs': [r for r in elevation.runs if not r.internal],
-            'three_imports': (
-                {'three': f'{three_base}build/three.module.js', 'three/addons/': f'{three_base}examples/jsm/'}
-                if three_base
-                else None
-            ),
+            'three_imports': stage.imports,
             'rack3d_config': {
-                'enabled': bool(three_base),
-                'threeBase': three_base,
+                **stage.config,
                 'scene': build_scene(elevation).as_json(),
                 # The drawing lights and tints its own meshes, so it needs the colours a
                 # stylesheet would otherwise have painted: the selection in both themes, and

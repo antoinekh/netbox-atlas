@@ -440,6 +440,129 @@
   text-align: right;
 }
 
+/* ---- 3D stages ----
+ *
+ * A Three.js canvas with its labels drawn as page elements over it, the view controls and the
+ * hover card in the corners. Shared by the rack and the floor. The ground is a soft light from
+ * above rather than a flat fill, so what is drawn stands on something in both themes. */
+
+.atlas-3d {
+  height: 74vh;
+  min-height: 28rem;
+  border-radius: .375rem;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 90% at 50% 18%, rgba(127, 127, 127, .02), rgba(127, 127, 127, .14)),
+    var(--atlas-bg);
+}
+
+.atlas-3d:fullscreen {
+  height: 100vh;
+  border-radius: 0;
+}
+
+.atlas-3d__canvas,
+.atlas-3d__canvas canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.atlas-3d__canvas canvas {
+  display: block;
+  cursor: grab;
+  touch-action: none;
+}
+
+.atlas-3d__canvas canvas:active {
+  cursor: grabbing;
+}
+
+/* The labels follow the rack, but never take a click from it. */
+.atlas-3d__labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.atlas-3d__controls {
+  position: absolute;
+  top: .75rem;
+  left: .75rem;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+}
+
+.atlas-3d__controls[hidden] {
+  display: none;
+}
+
+/* Solid behind the outline buttons, which are transparent and would otherwise sit straight on
+   the rack. */
+.atlas-3d__controls .btn-group {
+  background: var(--atlas-bg);
+  border-radius: var(--tblr-border-radius, .25rem);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .12);
+}
+
+.atlas-3d__tip {
+  position: absolute;
+  z-index: 3;
+  max-width: 22rem;
+  padding: .45rem .6rem;
+  font-size: .75rem;
+  line-height: 1.35;
+  color: var(--atlas-text);
+  background: var(--atlas-bg);
+  border: 1px solid var(--atlas-border);
+  border-radius: .375rem;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .16);
+  pointer-events: none;
+}
+
+.atlas-3d__tip[hidden] {
+  display: none;
+}
+
+.atlas-3d__tip strong {
+  display: block;
+  margin-bottom: .1rem;
+  font-weight: 600;
+}
+
+.atlas-3d__tip div {
+  color: var(--atlas-muted);
+}
+
+.atlas-3d__name,
+.atlas-3d__end {
+  padding: .1rem .4rem;
+  font-size: .6875rem;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+  color: #f8fafc;
+  background: rgba(17, 24, 39, .78);
+  border-radius: .25rem;
+  backdrop-filter: blur(2px);
+}
+
+.atlas-3d__end {
+  font-weight: 500;
+  color: var(--atlas-text);
+  background: var(--atlas-bg);
+  border: 1px solid var(--atlas-border);
+}
+
+.atlas-3d__free {
+  font-size: .6875rem;
+  color: var(--atlas-muted);
+  white-space: nowrap;
+}
+
 /* ==========================================================================
  * 2. The floor plan
  * ======================================================================= */
@@ -771,127 +894,8 @@
 /* ==========================================================================
  * 4. The rack
  *
- * A Three.js canvas with its labels drawn as page elements over it, the view controls and the
- * hover card in the corners, and the column beside it. The ground is a soft light from above
- * rather than a flat fill, so the rack stands on something in both themes.
+ * The column beside the rack drawing. The drawing itself is a 3D stage, see section 1.
  * ======================================================================= */
-
-.atlas-rack3d {
-  height: 74vh;
-  min-height: 28rem;
-  border-radius: .375rem;
-  overflow: hidden;
-  background:
-    radial-gradient(120% 90% at 50% 18%, rgba(127, 127, 127, .02), rgba(127, 127, 127, .14)),
-    var(--atlas-bg);
-}
-
-.atlas-rack3d:fullscreen {
-  height: 100vh;
-  border-radius: 0;
-}
-
-.atlas-rack3d__canvas,
-.atlas-rack3d__canvas canvas {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-
-.atlas-rack3d__canvas canvas {
-  display: block;
-  cursor: grab;
-  touch-action: none;
-}
-
-.atlas-rack3d__canvas canvas:active {
-  cursor: grabbing;
-}
-
-/* The labels follow the rack, but never take a click from it. */
-.atlas-rack3d__labels {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.atlas-rack3d__controls {
-  position: absolute;
-  top: .75rem;
-  left: .75rem;
-  z-index: 2;
-  display: flex;
-  flex-wrap: wrap;
-  gap: .5rem;
-}
-
-.atlas-rack3d__controls[hidden] {
-  display: none;
-}
-
-/* Solid behind the outline buttons, which are transparent and would otherwise sit straight on
-   the rack. */
-.atlas-rack3d__controls .btn-group {
-  background: var(--atlas-bg);
-  border-radius: var(--tblr-border-radius, .25rem);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, .12);
-}
-
-.atlas-rack3d__tip {
-  position: absolute;
-  z-index: 3;
-  max-width: 22rem;
-  padding: .45rem .6rem;
-  font-size: .75rem;
-  line-height: 1.35;
-  color: var(--atlas-text);
-  background: var(--atlas-bg);
-  border: 1px solid var(--atlas-border);
-  border-radius: .375rem;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, .16);
-  pointer-events: none;
-}
-
-.atlas-rack3d__tip[hidden] {
-  display: none;
-}
-
-.atlas-rack3d__tip strong {
-  display: block;
-  margin-bottom: .1rem;
-  font-weight: 600;
-}
-
-.atlas-rack3d__tip div {
-  color: var(--atlas-muted);
-}
-
-.atlas-rack3d__name,
-.atlas-rack3d__end {
-  padding: .1rem .4rem;
-  font-size: .6875rem;
-  font-weight: 600;
-  line-height: 1.3;
-  white-space: nowrap;
-  color: #f8fafc;
-  background: rgba(17, 24, 39, .78);
-  border-radius: .25rem;
-  backdrop-filter: blur(2px);
-}
-
-.atlas-rack3d__end {
-  font-weight: 500;
-  color: var(--atlas-text);
-  background: var(--atlas-bg);
-  border: 1px solid var(--atlas-border);
-}
-
-.atlas-rack3d__free {
-  font-size: .6875rem;
-  color: var(--atlas-muted);
-  white-space: nowrap;
-}
 
 /* ---- selection in the list ----
  * The cable picked, the cables of the device picked, and the rest dimmed rather than hidden, so

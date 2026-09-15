@@ -215,6 +215,7 @@ class RackViewTest(ViewTestCase):
         self.assertContains(response, '<script type="importmap">')
         self.assertContains(response, 'build/three.module.js')
         self.assertContains(response, '"three/addons/"')
+        self.assertContains(response, '"atlas/stage3d": "/static/netbox_atlas/stage3d.js?v=')
 
     def test_an_empty_setting_turns_the_drawing_off(self):
         plugins_config = {
@@ -224,7 +225,9 @@ class RackViewTest(ViewTestCase):
         with override_settings(PLUGINS_CONFIG=plugins_config):
             response = self._get()
         self.assertEqual(response.status_code, 200)
-        self.assertNotContains(response, 'type="importmap"')
+        # The stage is still mapped, so it can say on the page why nothing is drawn.
+        self.assertContains(response, '"atlas/stage3d"')
+        self.assertNotContains(response, 'three.module.js')
         self.assertFalse(response.context['rack3d_config']['enabled'])
 
     def test_the_column_beside_it_is_rendered_up_front(self):

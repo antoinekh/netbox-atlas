@@ -9,7 +9,7 @@
   In the head, before any module script: a browser resolves bare specifiers such as `three`
   only through an import map it has read before the first module loads.
   {% endcomment %}
-  {% if three_imports %}{% atlas_import_map three_imports %}{% endif %}
+  {% atlas_import_map three_imports %}
 {% endblock %}
 
 {% block content %}
@@ -58,10 +58,10 @@
         when it cannot be: the tab is turned off, there is no WebGL, or Three.js could not be
         loaded. The strip above and the column beside work without the drawing.
         {% endcomment %}
-        <div class="atlas-stage atlas-rack3d" data-atlas-rack3d>
-          <div class="atlas-rack3d__canvas" data-atlas-rack3d-canvas></div>
+        <div class="atlas-stage atlas-3d" data-atlas-3d>
+          <div class="atlas-3d__canvas" data-atlas-3d-canvas></div>
 
-          <div class="atlas-rack3d__controls" data-atlas-rack3d-controls hidden>
+          <div class="atlas-3d__controls" data-atlas-3d-controls hidden>
             <div class="btn-group btn-group-sm" role="group" aria-label="Look at the rack from">
               <button type="button" class="btn btn-outline-primary" data-atlas-view="front">Front</button>
               <button type="button" class="btn btn-outline-primary" data-atlas-view="rear">Rear</button>
@@ -82,8 +82,8 @@
             </div>
           </div>
 
-          <div class="atlas-rack3d__tip" data-atlas-rack3d-tip hidden></div>
-          <div class="atlas-map-message" data-atlas-rack3d-message role="status">Loading the rack&hellip;</div>
+          <div class="atlas-3d__tip" data-atlas-3d-tip hidden></div>
+          <div class="atlas-map-message" data-atlas-3d-message role="status">Loading the rack&hellip;</div>
         </div>
 
       </div>
