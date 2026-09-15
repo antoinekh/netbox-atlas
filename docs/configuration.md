@@ -61,3 +61,5 @@ PLUGINS_CONFIG = {
 ```
 
 The floor plans need nothing from the network.
+
+The world map sends the page's origin, and nothing more, as the `Referer` of each tile request. OpenStreetMap's tile servers refuse a tile requested without one, and NetBox's own `Referrer-Policy` would otherwise leave it out.

@@ -5,6 +5,7 @@ Things about NetBox and about this stack that cost time to find out. Each one is
 ## NetBox
 
 - **NetBox sets `CSRF_COOKIE_HTTPONLY`**, so JavaScript cannot read the CSRF cookie. Read the token from the hidden input Django renders.
+- **NetBox sends `Referrer-Policy: same-origin`**, so a request to another origin carries no `Referer`. OpenStreetMap's tile servers block exactly that ("Referer is required"). The world map page overrides the policy with a `<meta name="referrer">` tag.
 - **`Rack.get_utilization()` is U-space, not power.** Power is `get_power_utilization()`, and it returns 0 both for an idle rack and one with no feeds. The two are different questions and one of them has no answer.
 - **Rack units are counted in halves.** A 48U rack has 96 of them.
 - **`CableTermination` denormalises `_rack_id`**, which is what makes the floor's cable runs one query rather than one per cable.

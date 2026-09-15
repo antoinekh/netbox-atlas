@@ -13,3 +13,7 @@ First version.
 - **Rack view:** the rack in 3D with Three.js, with the device type front and rear images, every cable routed through the cable managers, reserved and free units, camera presets, and colouring by role, status, tenant, cabling or power. The `three_base` setting says where Three.js loads from.
 - **Tracing:** a network path through patch panels to a provider, and a power chain from socket to feed.
 - **Legends and finders that filter:** pick several legend bands, tick rows, find racks and devices by name or asset tag, and narrow them by tag or by a select custom field; what you picked is kept in the URL.
+
+### Fixed
+
+- **World map:** tiles from OpenStreetMap were refused with "Referer is required", because NetBox's `Referrer-Policy` sent no `Referer`. The world map page now sends its origin.
