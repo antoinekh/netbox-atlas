@@ -116,10 +116,18 @@ class ReservationTest(AtlasTestCase):
         self.assertEqual(len(bands), 2)
 
     def test_a_band_spans_the_height_of_its_units(self):
-        from netbox_atlas.elevation import UNIT_HEIGHT
-
         self.reserve([5, 6, 7])
-        self.assertEqual(build_elevation(self.rack).reservations[0].height, 3 * UNIT_HEIGHT)
+        band = build_elevation(self.rack).reservations[0]
+        self.assertEqual((band.offset, band.units), (4, 3))
+
+    def test_a_band_in_a_descending_rack_is_measured_from_its_lowest_unit(self):
+        # U5 to U7 counted from the top of the cabinet: the band's bottom is U7, which has the
+        # rack's other units below it.
+        self.rack.desc_units = True
+        self.rack.save()
+        self.reserve([5, 6, 7])
+        band = build_elevation(self.rack).reservations[0]
+        self.assertEqual(band.offset, self.rack.u_height - 7)
 
     def test_a_single_unit_reads_as_one_unit(self):
         self.reserve([9])

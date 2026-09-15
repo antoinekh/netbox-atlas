@@ -7,6 +7,14 @@
 
 {% block head %}
   {{ block.super }}
+  {% comment %}
+  NetBox sends `Referrer-Policy: same-origin`, so the browser sends no Referer with a request to
+  another origin, and OpenStreetMap's tile servers refuse every tile that arrives without one
+  ("Referer is required"). This page alone relaxes it to the page's origin, which is all a tile
+  server is told: never the path, the query or anything after the host. Set in the head, before
+  the map's worker is started, which takes the policy of the page that starts it.
+  {% endcomment %}
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <link rel="stylesheet" href="{% atlas_static 'netbox_atlas/atlas.css' %}">
   {% include 'netbox_atlas/inc/palette.html' %}
 {% endblock %}

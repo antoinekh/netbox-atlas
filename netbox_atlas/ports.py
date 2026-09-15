@@ -2,8 +2,8 @@
 The ports on a device, and how many are left.
 
 Split out of the elevation because "what is in this rack" and "what is left in it" are asked
-by different parts of the page: the drawing wants a tick per port, the allocation panel wants
-a count per kind, and neither needs the other's shape.
+by different parts of the page: the drawing wants a device per position, the allocation panel
+wants a count per kind, and neither needs the other's shape.
 """
 
 from collections.abc import Iterable
@@ -23,36 +23,17 @@ __all__ = (
     'PORT_MODELS',
     'Port',
     'PortGroup',
-    'PortTick',
     'load_ports',
     'rack_allocation',
 )
 
 
 @dataclass
-class PortTick:
-    """
-    One port as drawn: identity plus the rectangle it occupies.
-    """
-
-    name: str
-    cable_id: int | None
-    connected: bool
-    colour: str
-    x: float
-    y: float
-    w: float
-    termination_type: str = ''
-    termination_id: int | None = None
-
-
-@dataclass
 class Port:
     """
-    One termination on a device, as drawn.
+    One termination on a device.
 
-    `cable_id` is what ties a port tick to a cable line and to a row in the list, so clicking
-    any one of the three can highlight the other two.
+    `cable_id` is what ties a port to the cable drawn from it and to its row in the cabling list.
     """
 
     name: str
@@ -143,7 +124,7 @@ def rack_allocation(elevation) -> list[PortGroup]:
     anything. Selecting a device narrows it to that device, which the page already holds.
     """
     merged = {}
-    for mounted in elevation.mounted:
+    for mounted in elevation.devices:
         for group in mounted.port_groups:
             key = (group.kind, group.label)
             merged.setdefault(key, []).extend(group.ports)

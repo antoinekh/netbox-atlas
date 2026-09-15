@@ -18,7 +18,7 @@
   </p>
 </div>
 
-An atlas is a bound set of maps of one place, each at the scale its question needs: the continent, the country, the street. That is what this is for a network. The world map, the floor plan and the rack elevation are three scales of the same estate, one click apart, and every one of them recolours on demand by whatever you came to find out.
+An atlas is a bound set of maps of one place, each at the scale its question needs: the continent, the country, the street. That is what this is for a network. The world map, the floor plan and the rack in 3D are three scales of the same estate, one click apart, and every one of them recolours on demand by whatever you came to find out.
 
 A NetBox plugin. NetBox knows a rack's height, footprint, power feeds and cooling capability. It does not know where the rack stands in the room, and it will not colour a room by any of those values. This draws the room and colours it.
 
@@ -53,19 +53,21 @@ Every room in the site as a small plan with its own figures, on a tab of NetBox'
 
 ### The floor
 
-Racks at their real positions, coloured by **power**, **cooling**, **space** or **role**, over a scanned plan, with cable runs, zoom and a sortable rack table. Find racks by name or asset tag, narrow them by tag or custom field, and place them in the layout editor.
+The room in 3D, every rack a cabinet at its real position, rotation and height, coloured by **power**, **cooling**, **space** or **role**, with the reading rising up its doors and the cable runs arcing over the tops. Look from the top, at three quarters or from the side, and switch from **Cabinets** to **Devices** to see every rack open with its real devices and their front and rear images. Switch to **2D** for the plan over a scanned drawing, with zoom. Both views share a sortable rack table. Find racks by name or asset tag, narrow them by tag or custom field, and place them in the layout editor.
 
-![A row of eight racks over an architect drawing, coloured by how full they are, with the cables that leave the row drawn to the walls, zoom controls on the plan, and the rack table starting below it](docs/images/floor.png)
+![A row of eight cabinets standing on a metre grid, their roofs and doors coloured by how full they are, the cables leaving the row running from their tops to the walls, and the hover card of one rack](docs/images/floor-3d.png)
+
+![The same row as a 2D plan over an architect drawing, with the cables that leave the row drawn to the walls, zoom controls on the plan, and the rack table starting below it](docs/images/floor.png)
 
 ### The rack
 
-Front and rear in one drawing, with ports, cabling, reserved units and free space, coloured by **role**, **status**, **tenant**, **cabling** or **power**. Find devices by name or asset tag, and narrow them by tag or custom field.
+The cabinet in 3D, with the real front and rear images of each device type, every cable run through the cable managers, and reserved and free units. Turn it, move it and zoom, or jump to the front, the rear or the side. Devices are coloured by **role**, **status**, **tenant**, **cabling** or **power**. Find devices by name or asset tag, and narrow them by tag or custom field. It needs WebGL and Three.js, which loads from a CDN by default or from your own copy.
 
-![A 48U cabinet drawn front and rear, devices coloured by how much of each is plugged in, the switch's uplinks fanning out of the channel beside it, and a Find a cable button over the cabling legend](docs/images/rack.png)
+![A 48U cabinet seen from behind and to the side, the switch at the top and the servers below it wearing their real rear panels, the data cables dressed up one cable manager and the power leads up the other, beside the port allocation and cabling panels](docs/images/rack.png)
 
 ### On every level
 
-Click a port or a cable to trace it end to end, through patch panels and out to a provider, or along a power chain from socket to feed.
+In the rack, click a cable, or a row of the cabling list, to trace it end to end, through patch panels and out to a provider, or along a power chain from socket to feed. On the floor, a cable leaving the room opens the cable, or the circuit it reaches.
 
 ## Getting started
 

@@ -62,6 +62,12 @@ class AtlasConfig(PluginConfig):
         # renderer that draws its own labels needs them. Point this at your own glyph server on
         # a site with no egress; without it the markers are drawn and the names are not.
         'map_glyphs': 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf',
+        # Where the 3D rack and floor drawings load Three.js from: a copy of the `three` npm
+        # package, laid out as published, so `build/three.module.js` and `examples/jsm/` sit under
+        # it. Pinned, because the addons under `examples/jsm/` must come from the same release as
+        # the core. Empty turns both drawings off: the rack page keeps its panels and figures, and
+        # the floor opens on its 2D plan.
+        'three_base': 'https://cdn.jsdelivr.net/npm/three@0.186.0/',
     }
 
     def ready(self) -> None:

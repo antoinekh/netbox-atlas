@@ -29,12 +29,14 @@ None of these are the plugin's own objects, and every one of them is read throug
 |---|---|---|
 | World map | Sites, circuits, floors | `dcim.site`, `circuits.circuit`, `netbox_atlas.floor` |
 | Site | Floors, rack placements, racks | `netbox_atlas.floor`, `dcim.rack` |
-| Floor plan | Rack placements, racks, the device count on each rack | `netbox_atlas.rackplacement`, `dcim.rack`, `dcim.device` |
-| Floor plan, cable runs | What a cable leaving the room reaches | `circuits.circuit`, `dcim.rack`, `dcim.site` |
+| Floor, in 3D and in 2D | Rack placements, racks, the device count on each rack | `netbox_atlas.rackplacement`, `dcim.rack`, `dcim.device` |
+| Floor, cable runs | What a cable leaving the room reaches | `circuits.circuit`, `dcim.rack`, `dcim.site` |
+| Floor, Devices view | The devices in each placed rack, with their device type images | `dcim.rack`, `dcim.device` |
 | Layout editor | The same, plus the unplaced panel | `dcim.rack` |
-| Rack | Devices, and the device at the far end of each cable | `dcim.device` |
+| Rack | Devices with their device type images, and the device at the far end of each cable | `dcim.device` |
 | Tracing | The starting port, and every port, device, rack, cable, circuit and power feed on the path | `dcim.cable` to trace at all, then each object by its own model |
-| REST API, `floors/<pk>/layout/` | The same as the floor plan | the same as the floor plan |
+| REST API, `floors/<pk>/layout/` | The same as the floor | the same as the floor |
+| REST API, `floors/<pk>/devices/` | The same as the floor's Devices view | the same as the Devices view |
 
 So a user who may not see a rack does not see it on the floor plan, it is not counted in the strip above the plan, it is not in a legend band, and it is not offered in the editor's unplaced panel. A user who may see a rack but not its contents gets the cabinet and its free space, not an inventory of the machines in it. A user with no circuit permission gets the map without the circuits, rather than every CID, provider and commit rate in the estate.
 
@@ -50,4 +52,4 @@ Where a drawing reaches past what the reader may see, it says so without naming 
 
 ## Checking it
 
-The behaviour is covered by tests rather than by this document. `netbox_atlas/tests/test_views.py` holds a `PermissionTest` that grants a user `view` on one rack of two and asserts the other is neither drawn nor counted, and `TraceViewTest` asserts a user who may not read cables is refused a trace. `netbox_atlas/tests/test_visibility.py` covers the rest: a trace from a port the reader may not see, a hop onto a device they may not see, a far end in the rack's cabling, and the API layout.
+The behaviour is covered by tests rather than by this document. `netbox_atlas/tests/test_views.py` holds a `PermissionTest` that grants a user `view` on one rack of two and asserts the other is neither drawn nor counted, and `TraceViewTest` asserts a user who may not read cables is refused a trace. `netbox_atlas/tests/test_visibility.py` covers the rest: a trace from a port the reader may not see, a hop onto a device they may not see, a far end in the rack's cabling, and the API layout. The 3D drawings are covered too: `test_scene.py` asserts a hidden device is not in the rack's scene and a hidden far end is not named, and `test_floor_scene.py` asserts a hidden rack is not in the room and a hidden device is not in the Devices view or its API.

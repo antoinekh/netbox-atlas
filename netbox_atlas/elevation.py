@@ -1,172 +1,55 @@
 """
-The inside of a rack, as a drawing.
+The inside of a rack, as data.
 
-NetBox already draws a rack elevation. This one exists because it has to carry the cabling as
-well: where each link leaves a device, whether it stays in the rack, and where it goes if it
-does not. That is the question the elevation on the rack page cannot answer.
+Where each device sits, what reserved and free space there is, and every cable leaving a device
+in the rack, in rack units. `scene` turns this into the 3D drawing; the stat strip, the port
+allocation and the cabling list read it directly. Keeping the rack's facts apart from the
+drawing is what lets the arithmetic that decides where a device sits test without a browser.
 
-What a device holds and what it draws are not this module's business. Ports live in `ports`,
-power in `power`, and cables in `cabling`; this assembles their answers into positions. The
-arithmetic that decides where a device sits stays here, and is a pure function, so it tests
-without a browser.
+What a device holds is not this module's business. Ports live in `ports`, power in `power`, and
+cables in `cabling`; this assembles their answers per device.
 """
 
 from dataclasses import dataclass, field
 
 from dcim.models import Device
 
-from netbox_atlas.cabling import CABLE_KIND_COLOURS, build_runs, fan_exits
+from netbox_atlas.cabling import build_runs
 from netbox_atlas.palette import NO_ROLE
-from netbox_atlas.ports import PortTick, load_ports
+from netbox_atlas.ports import load_ports
 from netbox_atlas.power import load_device_power
 
 __all__ = (
     'FreeBand',
     'MountedDevice',
     'RackElevation',
+    'ReservedBand',
     'build_elevation',
+    'mount_device',
     'rack_summary',
-    'unit_y',
+    'unit_offset',
 )
 
-# rack is RACK_WIDTH wide, so the SVG viewBox is a fixed shape whatever the rack's real size.
-# Chosen so the drawing renders at roughly one viewBox unit per pixel in the column it sits
-# in. That is what makes it crisp: at any other scale a 1-unit rule lands on a fraction of a
-# pixel and is drawn as a two-pixel smudge, and text picks up the same softness. The absolute
-# numbers mean nothing on their own; their ratio to the rendered width is the point.
-UNIT_HEIGHT = 15
-RACK_WIDTH = 150
-# The channel down the right-hand side that cables are routed in, as net3d does.
-CHANNEL_WIDTH = 90
-# Space between the front and rear cabinets, wide enough to read as two objects.
-FACE_GAP = 24
-# How far into the channel an exit stub leans before it runs straight out. A device's
-# cables all start on its own row, so the lean is what separates them; putting the bend
-# here rather than at the cabinet edge keeps most of each stub a horizontal line.
-EXIT_BEND = 26
-
 NO_ROLE_COLOUR = NO_ROLE
-
-# The strip of port ticks along the bottom of a device, in drawing units.
-PORT_STRIP_X = 5
-PORT_STRIP_WIDTH = RACK_WIDTH - 10
-# Below this a tick cannot be told from its neighbour, so drawing one per port stops being
-# information and becomes texture. A 48-port switch clears it; a 300-port chassis does not.
-MIN_PORT_WIDTH = 2.0
 
 
 @dataclass
 class MountedDevice:
     """
-    One device in the rack, positioned in drawing units.
+    One device in the rack, once, with the face it is mounted on.
     """
 
     device: object
-    y: float
-    height: float
+    # Rack units between the bottom of the cabinet and the bottom of the device, and how many
+    # units it is tall. See `unit_offset`.
+    offset: float
+    units: float
     colour: str
     face: str
-    # Which side this drawing of the device is on. A full-depth device is drawn twice, once
-    # per side, and both carry the same device id so selecting either lights up both.
-    side: str = 'front'
-    # Ports are drawn once, on the side the device is mounted on. NetBox does not record
-    # which face an interface is on, so putting the same ports on both sides would be
-    # inventing a fact rather than showing one.
-    show_ports: bool = True
     port_groups: list = field(default_factory=list)
-
-    @property
-    def ports(self) -> list:
-        return [p for group in self.port_groups for p in group.ports]
-
-    @property
-    def summarised_ports(self) -> bool:
-        """
-        Whether this device has too many ports to draw one at a time.
-        """
-        ports = self.ports
-        if not ports:
-            return False
-        return (PORT_STRIP_WIDTH - 0.8 * (len(ports) - 1)) / len(ports) < MIN_PORT_WIDTH
-
-    @property
-    def port_layout(self) -> list[PortTick]:
-        """
-        Where each port tick is drawn, along the bottom edge of the device.
-
-        Computed here rather than in the browser so a port lines up with the cable leaving it
-        without the page measuring itself, and so the same numbers serve the API.
-
-        Past the width where ticks stop being distinguishable they are replaced by two bands,
-        connected and free, in proportion. That is an honest "too many to show" rather than a
-        row of slivers pretending to be countable, and it takes a 575-port rack from as many
-        rectangles to a couple of dozen. Tracing an individual port is still available from
-        the cabling list, which is where you would look for one by name anyway.
-        """
-        ports = self.ports
-        if not ports:
-            return []
-
-        y = self.y + self.height - 4
-        if not self.summarised_ports:
-            gap = 0.8
-            width = (PORT_STRIP_WIDTH - gap * (len(ports) - 1)) / len(ports)
-            return [
-                PortTick(
-                    name=port.name,
-                    cable_id=port.cable_id,
-                    connected=port.connected,
-                    colour=CABLE_KIND_COLOURS[port.kind],
-                    x=PORT_STRIP_X + index * (width + gap),
-                    y=y,
-                    w=width,
-                    termination_type=port.termination_type,
-                    termination_id=port.termination_id,
-                )
-                for index, port in enumerate(ports)
-            ]
-
-        connected = [p for p in ports if p.connected]
-        used = PORT_STRIP_WIDTH * len(connected) / len(ports)
-        kind = connected[0].kind if connected else ports[0].kind
-        bands = []
-        if used:
-            bands.append(
-                PortTick(
-                    name=f'{len(connected)} of {len(ports)} ports connected',
-                    cable_id=None,
-                    connected=True,
-                    colour=CABLE_KIND_COLOURS[kind],
-                    x=PORT_STRIP_X,
-                    y=y,
-                    w=used,
-                )
-            )
-        if used < PORT_STRIP_WIDTH:
-            bands.append(
-                PortTick(
-                    name=f'{len(ports) - len(connected)} free of {len(ports)}',
-                    cable_id=None,
-                    connected=False,
-                    colour='',
-                    x=PORT_STRIP_X + used,
-                    y=y,
-                    w=PORT_STRIP_WIDTH - used,
-                )
-            )
-        return bands
-
-    @property
-    def connected_count(self) -> int:
-        return sum(g.connected for g in self.port_groups)
-
-    @property
-    def port_count(self) -> int:
-        return sum(g.total for g in self.port_groups)
-
     # Power, filled in alongside the ports. A device's draw is the question asked of it
     # second, right after what it is cabled to, and NetBox puts the answer on a different
-    # page from the elevation.
+    # page from the rack.
     power: object = None
     # What the device colouring said about this device, kept whole so the legend can be built
     # from the distinct answers on this rack.
@@ -177,27 +60,27 @@ class MountedDevice:
     field_cells: list = field(default_factory=list)
 
     @property
-    def label(self) -> str:
-        return self.device.name or f'{self.device.device_type} (unnamed)'
+    def connected_count(self) -> int:
+        return sum(g.connected for g in self.port_groups)
 
     @property
-    def centre_y(self) -> float:
-        return self.y + self.height / 2
+    def port_count(self) -> int:
+        return sum(g.total for g in self.port_groups)
+
+    @property
+    def label(self) -> str:
+        return self.device.name or f'{self.device.device_type} (unnamed)'
 
 
 @dataclass
 class RackElevation:
     """
-    Everything one drawing of a rack needs.
+    Everything the drawing of one rack and the panels beside it need.
     """
 
     rack: object
     units: int
-    height: float
-    width: float = RACK_WIDTH
-    channel: float = CHANNEL_WIDTH
     devices: list = field(default_factory=list)
-    rear_devices: list = field(default_factory=list)
     reservations: list = field(default_factory=list)
     runs: list = field(default_factory=list)
     unplaced: list = field(default_factory=list)
@@ -210,59 +93,20 @@ class RackElevation:
     # most: what will fit.
     free: list = field(default_factory=list)
 
-    @property
-    def mounted(self) -> list:
-        """
-        One drawing per mounted device, whichever face it is on.
 
-        `devices` holds the front drawings and `rear_devices` the rear ones, so a full-depth
-        device is in both and a half-depth device on the rear is only in the second. Anything
-        that counts, colours or lists devices rather than drawing a face reads this, or the
-        rear-mounted ones drop out of it.
-        """
-        front = {m.device.pk for m in self.devices}
-        return self.devices + [m for m in self.rear_devices if m.device.pk not in front]
-
-    # Where the rear cabinet and the cable channel start, in drawing units.
-    @property
-    def rear_x(self) -> float:
-        return self.width + FACE_GAP
-
-    @property
-    def channel_x(self) -> float:
-        return self.rear_x + self.width
-
-    @property
-    def exit_bend(self) -> float:
-        return EXIT_BEND
-
-    @property
-    def total_width(self) -> float:
-        return self.channel_x + self.channel
-
-    @property
-    def unit_labels(self) -> list[tuple[int, float]]:
-        """
-        The U number and y position of every unit, for the ruler down the left.
-        """
-        return [(self.rack.starting_unit + i, self._unit_y(self.rack.starting_unit + i)) for i in range(self.units)]
-
-    def _unit_y(self, unit):
-        return unit_y(self.rack, unit, 1)
-
-
-def unit_y(rack, position: float, u_height: float) -> float:
+def unit_offset(rack, position: float, u_height: float) -> float:
     """
-    The top edge of a device, in drawing units.
+    Rack units between the bottom of the cabinet and the bottom of something `u_height` tall
+    mounted at `position`.
 
-    A rack is numbered from the bottom by default, so U1 is drawn last. `desc_units` inverts
-    that, which is how some vendors label a cabinet, and getting it wrong silently draws every
-    device upside down in the rack.
+    A rack is numbered from the bottom by default, so U1 sits on the floor of the cabinet.
+    `desc_units` inverts that, which is how some vendors label a cabinet, and getting it wrong
+    silently draws every device upside down in the rack.
     """
     offset = position - rack.starting_unit
     if rack.desc_units:
-        return offset * UNIT_HEIGHT
-    return (rack.u_height - offset - u_height) * UNIT_HEIGHT
+        return rack.u_height - offset - u_height
+    return offset
 
 
 def _role_colour(device) -> str:
@@ -270,24 +114,20 @@ def _role_colour(device) -> str:
     return f'#{role.color}' if role and role.color else NO_ROLE_COLOUR
 
 
-def _draw_device(rack, device, u_height: float, face: str, side: str) -> 'MountedDevice':
+def mount_device(rack, device) -> MountedDevice:
     """
-    One drawing of one device, on one side of the cabinet.
+    One device with a U position, placed in its rack in rack units.
 
-    A module-level function rather than a closure inside the loop: a closure would capture the
-    loop variables by reference, which is correct only because it happens to be called at once,
-    and is the kind of thing that breaks silently the moment the call is deferred.
+    Public so a drawing of many racks at once, such as the floor's devices, places a device
+    exactly the way the rack's own view does.
     """
+    u_height = float(device.device_type.u_height or 1)
     return MountedDevice(
         device=device,
-        y=unit_y(rack, float(device.position), u_height),
-        height=u_height * UNIT_HEIGHT,
+        offset=unit_offset(rack, float(device.position), u_height),
+        units=u_height,
         colour=_role_colour(device),
-        face=face,
-        side=side,
-        # Ports go on the side the device is mounted on. NetBox does not record which face an
-        # interface is on, so putting the same ports on both sides would invent a fact.
-        show_ports=face == side,
+        face=device.face or 'front',
     )
 
 
@@ -302,8 +142,9 @@ class ReservedBand:
     """
 
     reservation: object
-    y: float
-    height: float
+    # Rack units from the bottom of the cabinet to the bottom of the band, and its height.
+    offset: float
+    units: int
     first_unit: int
     last_unit: int
 
@@ -342,13 +183,13 @@ def _build_reservations(rack) -> list[ReservedBand]:
     out = []
     for units in bands:
         first, last = units[0], units[-1]
-        # unit_y measures to the top of a device of the given height, which for a band is the
-        # whole run, so the same call places it whichever way the rack is numbered.
+        # Placed as one object the height of the whole run, mounted at its lowest unit number,
+        # so the same call places it whichever way the rack is numbered.
         out.append(
             ReservedBand(
                 reservation=reserved[first],
-                y=unit_y(rack, first, len(units)),
-                height=len(units) * UNIT_HEIGHT,
+                offset=unit_offset(rack, first, len(units)),
+                units=len(units),
                 first_unit=first,
                 last_unit=last,
             )
@@ -366,18 +207,13 @@ class FreeBand:
     no room for the text and "1U" beside a 1U gap says nothing the gap has not already said.
     """
 
-    y: float
-    height: float
+    offset: float
     first_unit: float
     units: float
 
     @property
     def label(self) -> str:
         return f'{self.units:g}U free' if self.units >= 2 else ''
-
-    @property
-    def centre_y(self) -> float:
-        return self.y + self.height / 2
 
 
 def _measure_space(rack, reservations) -> tuple[dict, list['FreeBand']]:
@@ -412,7 +248,7 @@ def _measure_space(rack, reservations) -> tuple[dict, list['FreeBand']]:
     }
 
     # Consecutive free halves, merged into bands. Sorted low to high whichever way the cabinet
-    # is numbered; `unit_y` places each band correctly from its first unit and its height.
+    # is numbered; `unit_offset` places each band correctly from its first unit and its height.
     bands, run = [], []
     for half in sorted(available):
         if run and abs(half - run[-1] - 0.5) < 1e-6:
@@ -426,8 +262,7 @@ def _measure_space(rack, reservations) -> tuple[dict, list['FreeBand']]:
 
     free = [
         FreeBand(
-            y=unit_y(rack, halves[0], len(halves) / 2),
-            height=len(halves) / 2 * UNIT_HEIGHT,
+            offset=unit_offset(rack, halves[0], len(halves) / 2),
             first_unit=halves[0],
             units=len(halves) / 2,
         )
@@ -457,36 +292,24 @@ def build_elevation(rack, devices_queryset=None) -> 'RackElevation':
         .order_by('position')
     )
 
-    mounted, rear, unplaced = [], [], []
+    mounted, unplaced = [], []
     for device in devices:
         if device.position is None:
             # A device in the rack but not mounted at a U, which is normal for a
             # child device in a chassis or for something simply not recorded yet.
             unplaced.append(device)
             continue
-        u_height = float(device.device_type.u_height or 1)
-        face = device.face or 'front'
-        full_depth = bool(device.device_type.is_full_depth)
+        mounted.append(mount_device(rack, device))
 
-        # A full-depth device occupies both sides of the cabinet, so it is drawn on both.
-        # A half-depth one shows on its mounted face only, and the other side is genuinely
-        # free space there: drawing it on both would hide exactly the room you are looking
-        # for when you ask what will fit.
-        if face == 'front' or full_depth:
-            mounted.append(_draw_device(rack, device, u_height, face, 'front'))
-        if face == 'rear' or full_depth:
-            rear.append(_draw_device(rack, device, u_height, face, 'rear'))
-
-    every = mounted + rear
-    ports_by_device = load_ports({m.device.pk for m in every})
-    power_by_device = load_device_power(list({m.device.pk: m.device for m in every}.values()))
-    for m in every:
+    ports_by_device = load_ports({m.device.pk for m in mounted})
+    power_by_device = load_device_power([m.device for m in mounted])
+    for m in mounted:
         m.port_groups = ports_by_device.get(m.device.pk, [])
         m.power = power_by_device.get(m.device.pk)
 
-    y_by_device = {m.device.pk: m.centre_y for m in every}
-    runs = build_runs(rack, devices, y_by_device, devices_queryset=devices_queryset)
-    fan_exits(runs, rack.u_height * UNIT_HEIGHT)
+    # Top of the rack first, the way a cabinet is read and the cabling list is ordered.
+    order = {m.device.pk: -(m.offset + m.units) for m in mounted}
+    runs = build_runs(rack, devices, order, devices_queryset=devices_queryset)
 
     reservations = _build_reservations(rack)
     space, free = _measure_space(rack, reservations)
@@ -494,9 +317,7 @@ def build_elevation(rack, devices_queryset=None) -> 'RackElevation':
     return RackElevation(
         rack=rack,
         units=rack.u_height,
-        height=rack.u_height * UNIT_HEIGHT,
         devices=mounted,
-        rear_devices=rear,
         reservations=reservations,
         runs=runs,
         unplaced=unplaced,
@@ -530,7 +351,7 @@ def rack_summary(elevation: 'RackElevation') -> list:
     largest = max((band.units for band in elevation.free), default=0)
 
     external = sum(1 for run in elevation.runs if not run.internal)
-    mounted = elevation.mounted
+    mounted = elevation.devices
     connected = sum(m.connected_count for m in mounted)
     ports = sum(m.port_count for m in mounted)
 

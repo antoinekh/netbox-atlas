@@ -6,6 +6,8 @@ and rotate, and saves through the REST API rather than through a private endpoin
 so there is one way to write a placement and one set of permissions guarding it.
 """
 
+from dataclasses import dataclass
+
 from circuits.models import Circuit
 from dcim.models import Device, Rack, Site
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -24,14 +26,25 @@ from netbox_atlas.device_overlays import get_device_overlay, get_device_overlays
 from netbox_atlas.elevation import build_elevation, rack_summary
 from netbox_atlas.field_filters import cells_for, field_filters
 from netbox_atlas.floor_cabling import build_floor_exits, build_floor_runs, cabling_legend
+from netbox_atlas.floor_scene import build_floor_scene
 from netbox_atlas.geometry import floor_viewport, metre_ticks, rack_footprint_cm
 from netbox_atlas.layout import build_layout, floor_summary, rack_rows, resolve_overlay, unplaced_racks
 from netbox_atlas.models import Floor, FloorLayer, RackPlacement
 from netbox_atlas.overlays import get_overlays
-from netbox_atlas.palette import HIGHLIGHT, HIGHLIGHT_DARK, LABEL, LABEL_DARK, LABEL_HALO, LABEL_HALO_DARK
+from netbox_atlas.palette import (
+    HIGHLIGHT,
+    HIGHLIGHT_DARK,
+    LABEL,
+    LABEL_DARK,
+    LABEL_HALO,
+    LABEL_HALO_DARK,
+    STATUS_COLOURS,
+)
 from netbox_atlas.ports import rack_allocation
+from netbox_atlas.scene import build_scene
 from netbox_atlas.site_overlays import get_site_overlay, get_site_overlays
 from netbox_atlas.tags import tags_in_use
+from netbox_atlas.templatetags.atlas import atlas_static
 from netbox_atlas.tracing import trace_from
 from netbox_atlas.world import build_world
 
@@ -56,6 +69,38 @@ __all__ = (
     'TraceView',
     'WorldView',
 )
+
+
+@dataclass
+class ThreeStage:
+    """
+    What a page drawing on a 3D stage (`stage3d.js`) needs from the server.
+
+    `imports` is the page's import map: Three.js from the `three_base` setting, and the stage
+    module itself under a name, so the drawing imports it by that name and still gets the URL
+    that changes whenever the file does. `config` is merged into the drawing's own config, and
+    tells the stage whether it may load Three.js at all.
+    """
+
+    imports: dict[str, str]
+    config: dict
+
+
+def three_stage() -> ThreeStage:
+    # A copy of the `three` npm package, laid out as published. `three/addons/` is how Three.js's
+    # own examples import their controls, so the files under it load unchanged from any copy.
+    base = get_plugin_config('netbox_atlas', 'three_base') or ''
+    if base and not base.endswith('/'):
+        base = f'{base}/'
+    # The stage module is always mapped, even with Three.js turned off, so the page can still
+    # load it and say on the stage why nothing is drawn.
+    imports = {
+        'atlas/stage3d': atlas_static('netbox_atlas/stage3d.js'),
+        'atlas/cabinet3d': atlas_static('netbox_atlas/cabinet3d.js'),
+    }
+    if base:
+        imports.update({'three': f'{base}build/three.module.js', 'three/addons/': f'{base}examples/jsm/'})
+    return ThreeStage(imports=imports, config={'enabled': bool(base), 'threeBase': base})
 
 
 class FloorListView(generic.ObjectListView):
@@ -94,7 +139,16 @@ class FloorView(generic.ObjectView):
         # Drawn under the same toggle: a room whose only cabling leaves the building would
         # otherwise answer "show me the cabling" with an empty plan.
         exits = build_floor_exits(placed, instance, user=request.user) if show_runs else []
+        stage = three_stage()
         return {
+            'three_imports': stage.imports,
+            'floor3d_config': {
+                **stage.config,
+                'scene': build_floor_scene(instance, placed, runs, exits).as_json(),
+                # The devices in each rack, fetched only when the reader switches to them.
+                'devicesUrl': reverse('plugins-api:netbox_atlas-api:floor-devices', args=[instance.pk]),
+                'colours': {'highlight': HIGHLIGHT, 'highlightDark': HIGHLIGHT_DARK},
+            },
             'overlays': get_overlays(),
             'overlay': overlay,
             'stats': floor_summary(instance, placed),
@@ -250,7 +304,8 @@ class SiteAtlasView(generic.ObjectView):
 @register_model_view(Rack, 'atlas', path='atlas')
 class RackAtlasView(generic.ObjectView):
     """
-    The inside of a rack: devices at their real U positions, and the cables leaving them.
+    The inside of a rack in 3D: the device type images on real boxes at their U positions, and
+    every cable through the cable managers.
 
     Registered as a tab on NetBox's own rack page rather than as a page of this plugin's own.
     A rack is a NetBox object and this is another way of looking at it, so it belongs beside
@@ -263,6 +318,7 @@ class RackAtlasView(generic.ObjectView):
 
     def get_extra_context(self, request, instance):
         elevation = build_elevation(instance, devices_queryset=Device.objects.restrict(request.user, 'view'))
+        devices = elevation.devices
 
         # How the devices are coloured, chosen in the URL so a coloured rack is a link
         # somebody can send. An unknown name falls back rather than failing, the same way an
@@ -273,16 +329,13 @@ class RackAtlasView(generic.ObjectView):
             or get_device_overlay(get_plugin_config('netbox_atlas', 'default_device_overlay'))
             or (overlays[0] if overlays else None)
         )
-        # One drawing per device, the rear-only ones included: they are coloured, counted and
-        # listed like any other, and only drawn on the other face.
-        mounted_devices = elevation.mounted
-        # Custom fields offered as filters, like tags, on both drawings of a full-depth device.
-        filters = field_filters((m.device for m in mounted_devices), Device)
-        for mounted in elevation.devices + elevation.rear_devices:
+        # Custom fields offered as filters, like tags.
+        filters = field_filters((m.device for m in devices), Device)
+        for mounted in devices:
             mounted.field_cells = cells_for(filters, mounted.device)
         if overlay:
-            values = overlay.evaluate(mounted_devices)
-            for mounted in elevation.devices + elevation.rear_devices:
+            values = overlay.evaluate(devices)
+            for mounted in devices:
                 value = values.get(mounted.device.pk)
                 if value is not None:
                     mounted.colour = value.colour
@@ -298,16 +351,17 @@ class RackAtlasView(generic.ObjectView):
             if run.peer_device is not None:
                 runs_by_device.setdefault(run.peer_device.pk, []).append(run)
 
+        stage = three_stage()
+
         return {
             'elevation': elevation,
-            'mounted_devices': mounted_devices,
-            'device_tags': tags_in_use(m.device for m in mounted_devices),
+            'device_tags': tags_in_use(m.device for m in devices),
             'field_filters': filters,
             'stats': rack_summary(elevation),
             'device_overlays': overlays,
             'device_overlay': overlay,
-            'device_legend': (overlay.legend_for([m.value for m in mounted_devices if m.value]) if overlay else []),
-            'runs_by_device': [(mounted, runs_by_device.get(mounted.device.pk, [])) for mounted in mounted_devices],
+            'device_legend': (overlay.legend_for([m.value for m in devices if m.value]) if overlay else []),
+            'runs_by_device': [(mounted, runs_by_device.get(mounted.device.pk, [])) for mounted in devices],
             # The way back up to the floor this rack stands on, so the two views are a
             # round trip rather than a one-way link.
             'floor': placement.floor if placement else None,
@@ -315,6 +369,19 @@ class RackAtlasView(generic.ObjectView):
             'cable_legend': kind_legend(elevation.runs),
             'internal_runs': [r for r in elevation.runs if r.internal],
             'external_runs': [r for r in elevation.runs if not r.internal],
+            'three_imports': stage.imports,
+            'rack3d_config': {
+                **stage.config,
+                'scene': build_scene(elevation).as_json(),
+                # The drawing lights and tints its own meshes, so it needs the colours a
+                # stylesheet would otherwise have painted: the selection in both themes, and
+                # the red reserved units are drawn in.
+                'colours': {
+                    'highlight': HIGHLIGHT,
+                    'highlightDark': HIGHLIGHT_DARK,
+                    'reserved': STATUS_COLOURS['red'],
+                },
+            },
         }
 
 

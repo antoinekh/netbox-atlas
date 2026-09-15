@@ -1,5 +1,5 @@
 """
-A device mounted on the rear face only is a device like any other, drawn on the other side.
+A device mounted on the rear face only is a device like any other, facing the other way.
 """
 
 from django.urls import reverse
@@ -26,10 +26,9 @@ class RearDeviceTest(ViewTestCase):
             power_ports=1,
         )
 
-    def test_it_is_drawn_on_the_rear_only(self):
+    def test_it_is_mounted_on_the_rear(self):
         elevation = build_elevation(self.rack)
-        self.assertEqual(elevation.devices, [])
-        self.assertEqual([m.device for m in elevation.rear_devices], [self.rear])
+        self.assertEqual([(m.device, m.face) for m in elevation.devices], [(self.rear, 'rear')])
 
     def test_it_is_counted(self):
         stats = {s.label: s for s in rack_summary(build_elevation(self.rack))}
@@ -41,13 +40,13 @@ class RearDeviceTest(ViewTestCase):
         self.assertEqual(totals.get('Interfaces'), 2)
 
     def test_its_power_is_loaded(self):
-        mounted = build_elevation(self.rack).rear_devices[0]
+        mounted = build_elevation(self.rack).devices[0]
         self.assertIsNotNone(mounted.power)
         self.assertEqual(mounted.power.allocated_watts, 100)
 
     def test_the_rack_page_colours_and_lists_it(self):
         response = self.client.get(f'{reverse("dcim:rack_atlas", args=[self.rack.pk])}?colour=status')
-        self.assertEqual([m.device for m in response.context['mounted_devices']], [self.rear])
+        self.assertEqual([m.device for m in response.context['elevation'].devices], [self.rear])
         self.assertEqual(sum(e.count for e in response.context['device_legend']), 1)
         self.assertContains(response, f'data-atlas-alloc="{self.rear.pk}"')
         self.assertContains(response, f'data-atlas-cabling="{self.rear.pk}"')

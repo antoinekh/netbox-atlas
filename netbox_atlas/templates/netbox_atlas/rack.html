@@ -1,12 +1,15 @@
 {% extends 'generic/object.html' %}
-{% load static %}
 {% load atlas %}
-{% load helpers %}
 
 {% block head %}
   {{ block.super }}
   <link rel="stylesheet" href="{% atlas_static 'netbox_atlas/atlas.css' %}">
   {% include 'netbox_atlas/inc/palette.html' %}
+  {% comment %}
+  In the head, before any module script: a browser resolves bare specifiers such as `three`
+  only through an import map it has read before the first module loads.
+  {% endcomment %}
+  {% atlas_import_map three_imports %}
 {% endblock %}
 
 {% block content %}
@@ -25,7 +28,7 @@
                  title="{{ o.description }}">{{ o.label }}</a>
             {% endfor %}
           </div>
-          {% if elevation.devices or elevation.rear_devices %}
+          {% if elevation.devices %}
             {% comment %}
             The same control the floor has, over the same problem. Reading a name off a 48U
             cabinet by eye is what a room of fifty cabinets is at the other zoom. Dims the rest
@@ -44,7 +47,7 @@
           {% else %}
             <span class="atlas-toolbar__spacer"></span>
           {% endif %}
-          {% include 'netbox_atlas/inc/help.html' with text='Click a device to show what it is cabled to. Double-click a device to open it. Click a cable or a port to trace it. A full-depth device is selected on both faces. The find box matches a name or an asset tag; Tags narrows to the devices with any tag you tick. Click legend bands to filter; you can pick several. Escape clears.' %}
+          {% include 'netbox_atlas/inc/help.html' with text='Drag to turn the rack, right-drag to move it, scroll to zoom. Click a device to show what it is cabled to. Double-click a device to open it. Click a cable to trace it. The find box matches a name or an asset tag; Tags narrows to the devices with any tag you tick. Click legend bands to filter; you can pick several. Escape clears.' %}
         </div>
 
         {% comment %}
@@ -56,61 +59,37 @@
         {% include 'netbox_atlas/inc/stats.html' with stats=stats %}
 
         {% comment %}
-        The elevation and its cabling are one drawing, not two. A cable has to start on the
-        port it leaves, so the channel down the right shares this coordinate space.
-
-        Every element that can be selected carries data-device-id, data-cable-id or both. The
-        script drives selection off those alone, so nothing here has to know what highlighting
-        looks like.
+        One renderer: a Three.js scene, drawn by rack3d.js from the scene at the foot of the
+        page. The message covers the stage until the rack is drawn, and stays with the reason
+        when it cannot be: the drawing is turned off, there is no WebGL, or Three.js could not
+        be loaded. The strip above and the column beside work without the drawing.
         {% endcomment %}
-        <div class="atlas-elevation-frame">
-        <svg class="atlas-elevation"
-             viewBox="-26 -16 {{ elevation.total_width|add:34 }} {{ elevation.height|add:26 }}"
-             preserveAspectRatio="xMidYMin meet">
+        <div class="atlas-stage atlas-3d" data-atlas-3d>
+          <div class="atlas-3d__canvas" data-atlas-3d-canvas></div>
 
-          <g class="atlas-ruler">
-            {% for unit, y in elevation.unit_labels %}
-              <text x="-8" y="{{ y|add:15 }}" text-anchor="end">{{ unit }}</text>
-              <line x1="0" y1="{{ y }}" x2="{{ elevation.width }}" y2="{{ y }}"/>
-              <line x1="{{ elevation.rear_x }}" y1="{{ y }}" x2="{{ elevation.channel_x }}" y2="{{ y }}"/>
-            {% endfor %}
-          </g>
+          <div class="atlas-3d__controls" data-atlas-3d-controls hidden>
+            <div class="btn-group btn-group-sm" role="group" aria-label="Look at the rack from">
+              <button type="button" class="btn btn-outline-primary" data-atlas-view="front">Front</button>
+              <button type="button" class="btn btn-outline-primary" data-atlas-view="rear">Rear</button>
+              <button type="button" class="btn btn-outline-primary" data-atlas-view="side">Side</button>
+              <button type="button" class="btn btn-outline-primary" data-atlas-view="angle">3/4</button>
+            </div>
+            <div class="btn-group btn-group-sm" role="group" aria-label="Device faces">
+              <button type="button" class="btn btn-outline-primary" data-atlas-mode="images" aria-pressed="true">Images</button>
+              <button type="button" class="btn btn-outline-primary" data-atlas-mode="colour" aria-pressed="false">Colour</button>
+            </div>
+            <div class="btn-group btn-group-sm" role="group" aria-label="Display">
+              <button type="button" class="btn btn-outline-primary" data-atlas-labels aria-pressed="false" title="Names">
+                <i class="mdi mdi-label-outline" aria-hidden="true"></i><span class="visually-hidden">Names</span>
+              </button>
+              <button type="button" class="btn btn-outline-primary" data-atlas-fullscreen title="Full screen">
+                <i class="mdi mdi-fullscreen" aria-hidden="true"></i><span class="visually-hidden">Full screen</span>
+              </button>
+            </div>
+          </div>
 
-          {% include 'netbox_atlas/inc/cabinet.html' with devices=elevation.devices offset=0 label='Front' %}
-          {% include 'netbox_atlas/inc/cabinet.html' with devices=elevation.rear_devices offset=elevation.rear_x label='Rear' %}
-
-          {% comment %}
-          Cables route in the channel to the right of both cabinets, because a run belongs to
-          the rack rather than to one face of it. A cable that stays in the rack is a bracket
-          joining two devices; one that leaves is a stub with a dot, and the list names where
-          it goes. Stubs start on their device's row and lean apart, because a switch's
-          uplinks all leave from the same row and drawn flat they would be one line.
-          {% endcomment %}
-          <g class="atlas-runs" transform="translate({{ elevation.channel_x }} 0)">
-            {% for run in elevation.runs %}
-              <g class="atlas-run atlas-run--{{ run.kind }}" data-cable-id="{{ run.cable.pk }}"
-                 data-atlas-filterable="cables" data-band="{{ run.colour }}"
-                 data-device-id="{{ run.local_device.pk }}"
-                 data-termination="{{ run.termination_type }}/{{ run.termination_id }}"
-                 {% if run.peer_device %}data-peer-device-id="{{ run.peer_device.pk }}"{% endif %}
-                 tabindex="0">
-                <title>{{ run.local_name }} &#8594; {{ run.peer_name }}</title>
-                {% if run.internal %}
-                  <path d="M 0 {{ run.from_y }}
-                           H {{ forloop.counter|add:14 }}
-                           V {{ run.to_y }}
-                           H 0"
-                        style="stroke: {{ run.colour }};" fill="none"/>
-                {% else %}
-                  <path d="M 0 {{ run.from_y }} L {{ elevation.exit_bend }} {{ run.exit_y }} H {{ elevation.channel }}"
-                        style="stroke: {{ run.colour }};" fill="none"/>
-                  <circle cx="{{ elevation.channel }}" cy="{{ run.exit_y }}" r="4"
-                          style="fill: {{ run.colour }};"/>
-                {% endif %}
-              </g>
-            {% endfor %}
-          </g>
-        </svg>
+          <div class="atlas-3d__tip" data-atlas-3d-tip hidden></div>
+          <div class="atlas-map-message" data-atlas-3d-message role="status">Loading the rack&hellip;</div>
         </div>
 
       </div>
@@ -118,7 +97,6 @@
   </div>
 
   <div class="col col-md-4">
-
     {% comment %}
     The allocation panel answers "what is left in this rack", and narrows to one device when
     one is selected. Both states are rendered up front and the script switches between them,
@@ -146,7 +124,7 @@
             <p class="text-muted mb-0">Nothing in this rack has any ports recorded.</p>
           {% endfor %}
         </div>
-        {% for m in mounted_devices %}
+        {% for m in elevation.devices %}
           <div class="atlas-alloc" data-atlas-alloc="{{ m.device.pk }}" hidden>
             {% for group in m.port_groups %}
               {% include 'netbox_atlas/inc/alloc_row.html' with group=group %}
@@ -301,8 +279,10 @@
 <script type="application/json" id="atlas-rack-config">
   {"traceUrl": "{% url 'plugins:netbox_atlas:trace' termination_type='APP.MODEL' termination_id=0 %}"}
 </script>
+{{ rack3d_config|json_script:"atlas-rack3d-config" }}
 <script src="{% atlas_static 'netbox_atlas/state.js' %}" defer></script>
 <script src="{% atlas_static 'netbox_atlas/legend.js' %}" defer></script>
 <script src="{% atlas_static 'netbox_atlas/finder.js' %}" defer></script>
-<script src="{% atlas_static 'netbox_atlas/rack.js' %}" defer></script>
+<script src="{% atlas_static 'netbox_atlas/rack_panel.js' %}" defer></script>
+<script type="module" src="{% atlas_static 'netbox_atlas/rack3d.js' %}"></script>
 {% endblock %}

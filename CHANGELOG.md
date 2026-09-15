@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- **Rack view:** now drawn in 3D with Three.js, replacing the 2D elevation: device type front and rear images, every cable through the cable managers, camera presets.
+- **Floor view:** opens in 3D, with cabinets at their real position, rotation and height, coloured by the overlay, cable runs arcing over the racks, and a switch back to the 2D plan.
+- **Floor Devices view:** opens every rack to show its real devices and their images, served by the new `GET /api/plugins/atlas/floors/<id>/devices/`.
+- **Setting:** `three_base` says where Three.js loads from, for sites with no internet access.
+- **Fixed:** OpenStreetMap tiles on the world map load again; the page now sends its origin as `Referer`.
+
 ## v0.1.0 (2026-09-15)
 
 First version.

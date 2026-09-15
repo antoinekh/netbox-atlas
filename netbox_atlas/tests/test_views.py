@@ -99,14 +99,13 @@ class FloorViewTest(ViewTestCase):
 
 
 class RackViewTest(ViewTestCase):
-    def test_the_rack_renders_both_faces(self):
+    def test_the_rack_can_be_looked_at_from_the_front_and_the_rear(self):
         rack = make_rack(self.site, u_height=10)
         make_device(self.site, rack, 'srv', self.role, self.manufacturer, interfaces=2)
         response = self.client.get(reverse('dcim:rack_atlas', args=[rack.pk]))
         self.assertEqual(response.status_code, 200)
-        # Rendered title-case; the uppercase in the page is a CSS transform.
-        self.assertContains(response, 'Front')
-        self.assertContains(response, 'Rear')
+        self.assertContains(response, 'data-atlas-view="front"')
+        self.assertContains(response, 'data-atlas-view="rear"')
 
     def test_an_empty_rack_does_not_break(self):
         rack = make_rack(self.site, u_height=10)
@@ -129,12 +128,13 @@ class RackViewTest(ViewTestCase):
         self.assertNotContains(response, 'data-atlas-find')
 
     def test_a_device_carries_its_name_for_the_search(self):
-        # The search reads the name off the drawing, as the floor's does, rather than the
-        # server filtering and re-rendering: the page already holds every device it can show.
+        # The search reads the name from the scene, as the floor's reads it off the drawing,
+        # rather than the server filtering and re-rendering: the page holds every device it can
+        # show.
         rack = make_rack(self.site, u_height=10)
         make_device(self.site, rack, 'srv', self.role, self.manufacturer)
         response = self.client.get(reverse('dcim:rack_atlas', args=[rack.pk]))
-        self.assertContains(response, 'data-name="srv"')
+        self.assertEqual([d['label'] for d in response.context['rack3d_config']['scene']['devices']], ['srv'])
 
 
 class RackCablingFinderTest(ViewTestCase):

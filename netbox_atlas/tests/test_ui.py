@@ -205,5 +205,6 @@ class TagFilterTest(ViewTestCase):
         device.tags.add(self.edge)
         response = self.client.get(reverse('dcim:rack_atlas', args=[self.tagged.pk]))
         self.assertContains(response, 'data-atlas-finder="device-tags"')
-        self.assertContains(response, 'data-tags="edge "')
-        self.assertContains(response, 'data-asset-tag="AT-D-01"')
+        scene_device = response.context['rack3d_config']['scene']['devices'][0]
+        self.assertEqual(scene_device['filters']['device-tags'], 'edge')
+        self.assertEqual(scene_device['assetTag'], 'AT-D-01')
