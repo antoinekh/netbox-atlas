@@ -19,6 +19,7 @@ make demo-data   # drop the database and load netbox-demo-data, then migrate
 make static      # collect the plugin's CSS and JS
 make enrich      # fill in the fields the demo data leaves blank
 make autoplace   # create a floor per site and lay its racks out in rows
+make enrich      # again, to draw a plan under each floor autoplace created
 make test        # run the test suite
 ```
 
@@ -43,15 +44,20 @@ Fills in the fields this plugin draws with, and **never overwrites a value that 
 | `--fill` | Mounts devices in racks that stand empty |
 | `--cable` | Cables and powers the devices `--fill` mounted |
 | `--circuits` | Circuits between sites, so the map has links |
+| `--europe` | European sites and transatlantic circuits, for a worldwide map |
+| `--uplinks` | A cable from each rack's top-of-rack switch to a pair of spines in other racks |
+| `--plans` | A schematic architect drawing under each floor, so the background-layer feature has something to show |
+| `--all` | Everything above, the same as no flag |
+| `--seed` | The random seed, so a run repeats (default: `1`) |
 
-It also puts a schematic architect drawing under each floor, so the background-layer feature has something to show.
+`--plans` draws only under floors that already exist, so run the command again after `lens_autoplace` creates them.
 
 ### `lens_autoplace`
 
 Creates a floor per site and lays its unplaced racks out in rows.
 
 > [!CAUTION]
-> This is a bootstrap aid for a demo or development database. **Do not run it against a production NetBox.** It invents a room that does not exist: a 30x20 m hall, racks in tidy rows, and no relationship to the building. A floor plan whose whole value is that it matches the real room is worth nothing when it was generated, and once the racks are placed nobody can tell which positions were measured and which were guessed. Draw the real room instead: the README's [Your first floor](../README.md#your-first-floor) is three steps.
+> This is a bootstrap aid for a demo or development database. **Do not run it against a production NetBox.** It invents a room that does not exist: racks in tidy rows, a room sized to fit them, and no relationship to the building. A floor plan whose whole value is that it matches the real room is worth nothing when it was generated, and once the racks are placed nobody can tell which positions were measured and which were guessed. Draw the real room instead: the README's [Your first floor](../README.md#your-first-floor) is three steps.
 
 It never moves a rack somebody has already placed, unless you pass `--replace`.
 

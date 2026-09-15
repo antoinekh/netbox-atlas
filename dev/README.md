@@ -40,6 +40,7 @@ make demo-data   # drop the database, load netbox-demo-data, migrate (destroys t
 make static      # collect the plugin CSS and JS
 make enrich      # fill in footprints, coordinates, cabling and circuits the demo data lacks
 make autoplace   # create a floor per site and lay the racks out in rows
+make enrich      # again, to draw a plan under each floor autoplace created
 ```
 
 Open http://localhost:8890 and sign in as `admin` / `admin`.

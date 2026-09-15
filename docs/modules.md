@@ -16,6 +16,7 @@ What each part of the plugin holds. The Python modules are under `netbox_spatial
 | `tags` | The tags in use on a floor or in a rack, for the Tags finder |
 | `field_filters` | Custom fields offered as filters, the way tags are |
 | `geometry` | Footprints, the scale, and the one type size a drawing gets |
+| `templatetags/lens` | Static URLs that change whenever the file does, the palette as CSS variables, and the 3D pages' import map |
 | `legend.js` | Picking bands, shared by all three levels |
 | `finder.js` | Searching and ticking a long list, shared by the map and the rack |
 | `state.js` | What a drawing is narrowed to, kept in the URL hash |
@@ -28,5 +29,6 @@ What each part of the plugin holds. The Python modules are under `netbox_spatial
 | `rack_panel.js` | The column beside the rack: port allocation, cabling, reservations and the traced path |
 | `world.js` | The MapLibre globe, and the message shown when it cannot be drawn |
 | `editor.js` | Dragging and saving a placement |
+| `lens.css` | The styles of every page, drawn from the palette's CSS variables |
 
 To add a colouring from another plugin, or to read a floor through the REST API, see [extending.md](extending.md).
