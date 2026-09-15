@@ -63,7 +63,7 @@ The room in 3D, every rack a cabinet at its real position, rotation and height, 
 
 The cabinet in 3D, with the real front and rear images of each device type, every cable run through the cable managers, and reserved and free units. Turn it, move it and zoom, or jump to the front, the rear or the side. Devices are coloured by **role**, **status**, **tenant**, **cabling** or **power**. Find devices by name or asset tag, and narrow them by tag or custom field. It needs WebGL and Three.js, which loads from a CDN by default or from your own copy.
 
-![A 48U cabinet seen from behind and to the side, the switch at the top and the servers below it wearing their real rear panels, the data cables dressed up the right-hand cable manager and the power leads up the left one](docs/images/rack.png)
+![A 48U cabinet seen from behind and to the side, the switch at the top and the servers below it wearing their real rear panels, the data cables dressed up one cable manager and the power leads up the other, beside the port allocation and cabling panels](docs/images/rack.png)
 
 ### On every level
 
