@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.2.0 (2026-09-15)
 
 - **Rack view:** now drawn in 3D with Three.js, replacing the 2D elevation: device type front and rear images, every cable through the cable managers, camera presets.
 - **Floor view:** opens in 3D, with cabinets at their real position, rotation and height, coloured by the overlay, cable runs arcing over the racks, and a switch back to the 2D plan.
