@@ -158,14 +158,10 @@ class CableRun:
     peer_device: object | None
     peer_rack: object | None
     colour: str
-    from_y: float
-    to_y: float | None  # None when the far end is outside this rack
     kind: str  # 'interface', 'power', 'console', 'passthrough' or 'other'
-    # The line a cable that leaves the rack is drawn on. It is the device's own row until
-    # another cable on that device wants it too, because a stub drawn twice is one stub you
-    # can see and one you cannot. `fan_exits` spreads them. An internal run ignores it, as
-    # it is drawn as a bracket between two rows.
-    exit_y: float = 0.0
+    # Whether the far end is a device mounted in this rack, so the cable is drawn end to end
+    # rather than leaving through the roof.
+    internal: bool = False
     # The local end, so the run can be traced end to end from here.
     termination_type: str = ''
     termination_id: int | None = None
@@ -173,10 +169,6 @@ class CableRun:
     # outward from whichever device you selected, so when that device is the far end its own
     # name would otherwise be repeated on every row.
     peer_port_name: str = ''
-
-    @property
-    def internal(self) -> bool:
-        return self.to_y is not None
 
 
 # Kept as a name for what the drawing needs; the values live in the palette.
@@ -223,10 +215,14 @@ def kind_of(termination: Any) -> str:
 
 
 def build_runs(
-    rack: Rack, devices: Sequence, y_by_device: Mapping[int, float], devices_queryset=None
+    rack: Rack, devices: Sequence, order_by_device: Mapping[int, float], devices_queryset=None
 ) -> list[CableRun]:
     """
     Every cable with at least one end on a device in this rack.
+
+    `order_by_device` holds the devices mounted at a U, each with the key its cables are listed
+    by, so the list reads down the cabinet. A device missing from it has no position to draw a
+    cable from.
 
     Built from the termination rows rather than from the cables, so the whole rack costs a
     handful of queries instead of one per cable end. Walking `cable.terminations` and touching
@@ -277,7 +273,7 @@ def build_runs(
 
     runs = []
     for cable_id, local in near.items():
-        if local.device_id not in y_by_device or local.obj is None:
+        if local.device_id not in order_by_device or local.obj is None:
             # The local end is on a device with no U position, so there is no row to draw
             # from. It still appears in the unplaced list.
             continue
@@ -305,51 +301,15 @@ def build_runs(
                 peer_device=peer_device,
                 peer_rack=peer_rack,
                 colour=CABLE_KIND_COLOURS[kind],
-                from_y=y_by_device[local.device_id],
-                to_y=y_by_device.get(peer.device_id) if peer_device else None,
+                internal=bool(peer_device) and peer.device_id in order_by_device,
                 kind=kind,
                 termination_type=f'{local.obj._meta.app_label}.{local.obj._meta.model_name}',
                 termination_id=local.object_id,
             )
         )
 
-    runs.sort(key=lambda r: (r.from_y, r.local_name))
+    runs.sort(key=lambda r: (order_by_device[r.local_device.pk], r.local_name))
     return runs
-
-
-# How far apart two cables leaving the same device are drawn, in drawing units. A third of a
-# rack unit: close enough to read as one bundle, far enough to hover one of them.
-EXIT_PITCH = 5.0
-
-
-def fan_exits(runs: Iterable, height: float) -> None:
-    """
-    Give every cable that leaves the rack a line of its own, in place.
-
-    A stub is drawn out of its device's row, so all of a device's uplinks wanted the same row
-    and were drawn one on top of another: a top-of-rack switch with seventeen of them showed
-    one stub, hovered as whichever happened to be last, and stayed opaque when the band was
-    filtered out because seventeen strokes at 14% stack back up to a solid line. Cables on a
-    shared row fan around it instead, and the fan is nudged back inside the drawing when the
-    device is near an end of the rack.
-    """
-    by_row = {}
-    for run in runs:
-        run.exit_y = run.from_y
-        if not run.internal:
-            by_row.setdefault(run.from_y, []).append(run)
-
-    for row, group in by_row.items():
-        if len(group) < 2:
-            continue
-        span = EXIT_PITCH * (len(group) - 1)
-        top = row - span / 2
-        # A fan wider than the rack cannot be centred anywhere, so it is drawn from the top
-        # and runs long rather than being squeezed into a line again.
-        if span <= height:
-            top = min(max(top, 0.0), height - span)
-        for i, run in enumerate(sorted(group, key=lambda r: r.local_name)):
-            run.exit_y = top + i * EXIT_PITCH
 
 
 def kind_legend(runs: Iterable) -> list[LegendEntry]:

@@ -18,7 +18,7 @@
   </p>
 </div>
 
-An atlas is a bound set of maps of one place, each at the scale its question needs: the continent, the country, the street. That is what this is for a network. The world map, the floor plan and the rack elevation are three scales of the same estate, one click apart, and every one of them recolours on demand by whatever you came to find out.
+An atlas is a bound set of maps of one place, each at the scale its question needs: the continent, the country, the street. That is what this is for a network. The world map, the floor plan and the rack in 3D are three scales of the same estate, one click apart, and every one of them recolours on demand by whatever you came to find out.
 
 A NetBox plugin. NetBox knows a rack's height, footprint, power feeds and cooling capability. It does not know where the rack stands in the room, and it will not colour a room by any of those values. This draws the room and colours it.
 
@@ -59,9 +59,9 @@ Racks at their real positions, coloured by **power**, **cooling**, **space** or 
 
 ### The rack
 
-Front and rear in one drawing, with ports, cabling, reserved units and free space, coloured by **role**, **status**, **tenant**, **cabling** or **power**. Find devices by name or asset tag, and narrow them by tag or custom field.
+The cabinet in 3D, with the real front and rear images of each device type, every cable run through the cable managers, and reserved and free units. Turn it, move it and zoom, or jump to the front, the rear or the side. Devices are coloured by **role**, **status**, **tenant**, **cabling** or **power**. Find devices by name or asset tag, and narrow them by tag or custom field. It needs WebGL and Three.js, which loads from a CDN by default or from your own copy.
 
-![A 48U cabinet drawn front and rear, devices coloured by how much of each is plugged in, the switch's uplinks fanning out of the channel beside it, and a Find a cable button over the cabling legend](docs/images/rack.png)
+![A 48U cabinet seen from behind and to the side, the switch at the top and the servers below it wearing their real rear panels, the data cables dressed up the right-hand cable manager and the power leads up the left one](docs/images/rack.png)
 
 ### On every level
 

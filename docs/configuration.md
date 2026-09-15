@@ -19,6 +19,7 @@ Every setting is optional. Set them under `PLUGINS_CONFIG['netbox_atlas']` in Ne
 | `map_js` | MapLibre 5.6.1 on cdnjs | Where the browser loads MapLibre from. Empty turns the world map off. |
 | `map_css` | MapLibre 5.6.1 on cdnjs | Where the browser loads MapLibre's stylesheet from. |
 | `map_glyphs` | OpenMapTiles fonts | Font server for the site names on the map. `None` draws the map without names. |
+| `three_base` | Three.js 0.186.0 on jsDelivr | Where the browser loads Three.js from for the rack view: a copy of the `three` npm package, with `build/three.module.js` and `examples/jsm/` under it. Empty turns the rack drawing off. |
 
 A name in a URL that no colouring answers to falls back to the default, and then to the first colouring registered, so an old link still opens.
 
@@ -41,7 +42,7 @@ PLUGINS_CONFIG = {
 
 ## A site with no internet access
 
-The world map needs a browser with WebGL and a copy of MapLibre it can reach. The tiles and the fonts are optional. Host MapLibre's two files yourself, and point the map settings at your own servers, or turn the optional parts off:
+The world map and the rack view need a browser with WebGL, and a copy of MapLibre and of Three.js it can reach. The tiles and the fonts are optional. Host the libraries yourself, and point the settings at your own servers, or turn the optional parts off:
 
 ```python
 PLUGINS_CONFIG = {
@@ -53,8 +54,10 @@ PLUGINS_CONFIG = {
         'map_attribution': 'Internal tiles',
         # Your own glyph server, or None for a map without site names.
         'map_glyphs': None,
+        # A copy of the `three` npm package, unpacked as published.
+        'three_base': 'https://static.example.internal/three/0.186.0/',
     },
 }
 ```
 
-The floor plans and the rack view need nothing from the network.
+The floor plans need nothing from the network.

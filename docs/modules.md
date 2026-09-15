@@ -6,7 +6,8 @@ What each part of the plugin holds. The Python modules are under `netbox_atlas/`
 |---|---|
 | `models` | `Floor`, `RackPlacement` and `FloorLayer`, geometry only |
 | `signals` | Removing a background image from storage when no layer uses it any more |
-| `layout` / `elevation` / `world` | Turning those into a drawing |
+| `layout` / `world` | Turning those into a drawing |
+| `elevation` / `scene` | A rack in rack units, then the same rack in millimetres for the 3D drawing, with every cable routed through the cable managers |
 | `cabling` / `ports` / `power` / `floor_cabling` | Resolved in bulk, never per object |
 | `tracing` | Following a path end to end, and a power chain past the PDU |
 | `overlays` / `device_overlays` / `site_overlays` | The colouring registries and their built-ins |
@@ -18,7 +19,9 @@ What each part of the plugin holds. The Python modules are under `netbox_atlas/`
 | `finder.js` | Searching and ticking a long list, shared by the map and the rack |
 | `state.js` | What a drawing is narrowed to, kept in the URL hash |
 | `zoom.js` | Zooming into a floor plan and moving round it, on the floor page and in the editor |
-| `floor.js` / `rack.js` | One level each: hovering, selection, tracing, the rack table |
+| `floor.js` | The floor: hovering, selection, tracing, the rack table |
+| `rack3d.js` | The rack in Three.js: device images, cables, selection, the camera, and the message shown when it cannot be drawn |
+| `rack_panel.js` | The column beside the rack: port allocation, cabling, reservations and the traced path |
 | `world.js` | The MapLibre globe, and the message shown when it cannot be drawn |
 | `editor.js` | Dragging and saving a placement |
 

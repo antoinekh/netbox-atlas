@@ -65,3 +65,21 @@ def json_facts(facts) -> str:
     import json
 
     return json.dumps([[str(label), str(value)] for label, value in (facts or ())])
+
+
+@register.simple_tag
+def atlas_import_map(imports) -> str:
+    """
+    An import map, as the script tag the browser reads it from.
+
+    `json_script` cannot be used: it writes `type="application/json"`, and a browser only
+    resolves module specifiers from `type="importmap"`. The escaping is the same as
+    `json_script`'s, so a URL holding an angle bracket cannot end the tag early.
+    """
+    import json
+
+    from django.utils.safestring import mark_safe
+
+    payload = json.dumps({'imports': imports or {}})
+    payload = payload.replace('<', '\\u003C').replace('>', '\\u003E').replace('&', '\\u0026')
+    return mark_safe(f'<script type="importmap">{payload}</script>')

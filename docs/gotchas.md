@@ -16,9 +16,12 @@ Things about NetBox and about this stack that cost time to find out. Each one is
 
 - **A plugin on `PYTHONPATH` is not collected by the entrypoint.** Run `make static` after touching anything under `static/`.
 - **A template change needs `make reload`, not `make static`.** Django caches the loaded templates.
+- **A browser with no GPU has no WebGL**, and the rack view and the world map then show their "needs WebGL" message. The DevTools browser under WSL is one. For a headless check, start Chrome with `--use-angle=swiftshader --enable-unsafe-swiftshader`.
 - **The demo SQL dump inserts explicit ids without advancing the sequences**, so the first row NetBox writes afterwards collides. `manage.py sqlsequencereset` for the affected apps fixes it. The symptom is a worker container that dies on `duplicate key value violates unique constraint "core_job_pkey"`.
 
 ## Drawing
 
-- **Overlapping strokes defeat dimming.** Seventeen lines at 14% opacity drawn on the same path composite back to about 94%: the band reads as fully lit while being unclickable. Anything that can be drawn more than once on the same path has to be separated first, which is what `fan_exits()` does for the cables leaving a rack.
+- **Overlapping strokes defeat dimming.** Seventeen lines at 14% opacity drawn on the same path composite back to about 94%: the band reads as fully lit while being unclickable. Anything that can be drawn more than once on the same path has to be separated first, which is what the lanes in `scene.py` do for the cables in a rack.
+- **In Three.js, changing a material's `transparent` needs `material.needsUpdate = true`.** Changing its `opacity` alone does not. Without it, a cable faded by a filter stays solid.
+- **Three.js 0.186 has no `PCFSoftShadowMap`.** It warns and falls back to `PCFShadowMap`.
 - **`getBoundingClientRect().top` does not tell you whether two SVG elements overlap.** Diagonal paths that share a start point share a bounding-box top. Compare the `d` attribute, or sample pixels.

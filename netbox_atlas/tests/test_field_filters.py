@@ -126,4 +126,5 @@ class FieldFilterPageTest(FieldFilterTestCase):
         with offering('device_compliancy'):
             response = self.client.get(reverse('dcim:rack_atlas', args=[self.r1.pk]))
         self.assertContains(response, 'data-atlas-finder="field0"')
-        self.assertContains(response, 'data-field0="sox"')
+        scene_device = response.context['rack3d_config']['scene']['devices'][0]
+        self.assertEqual(scene_device['filters']['field0'], 'sox')

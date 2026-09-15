@@ -5,7 +5,7 @@ The inside of a rack: where devices sit, which face they are drawn on, and their
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 
-from netbox_atlas.elevation import UNIT_HEIGHT, build_elevation, unit_y
+from netbox_atlas.elevation import build_elevation, unit_offset
 from netbox_atlas.ports import rack_allocation
 from netbox_atlas.tests.base import (
     AtlasTestCase,
@@ -17,43 +17,41 @@ from netbox_atlas.tests.base import (
 
 
 class UnitPositionTest(AtlasTestCase):
-    def test_u1_is_drawn_at_the_bottom(self):
+    def test_u1_sits_at_the_bottom(self):
         rack = make_rack(self.site, u_height=10)
-        self.assertGreater(unit_y(rack, 1, 1), unit_y(rack, 10, 1))
+        self.assertEqual(unit_offset(rack, 1, 1), 0)
+        self.assertEqual(unit_offset(rack, 10, 1), 9)
 
     def test_desc_units_inverts_the_rack(self):
         # Getting this wrong draws every device upside down, and looks plausible.
         rack = make_rack(self.site, u_height=10, desc_units=True)
-        self.assertLess(unit_y(rack, 1, 1), unit_y(rack, 10, 1))
+        self.assertEqual(unit_offset(rack, 1, 1), 9)
+        self.assertEqual(unit_offset(rack, 10, 1), 0)
 
-    def test_a_tall_device_starts_higher_up(self):
-        rack = make_rack(self.site, u_height=10)
-        self.assertEqual(unit_y(rack, 5, 2), unit_y(rack, 5, 1) - UNIT_HEIGHT)
+    def test_a_tall_device_in_a_descending_rack_is_measured_from_its_lowest_unit(self):
+        rack = make_rack(self.site, u_height=10, desc_units=True)
+        self.assertEqual(unit_offset(rack, 1, 2), 8)
+
+    def test_the_starting_unit_is_the_bottom(self):
+        rack = make_rack(self.site, u_height=10, starting_unit=5)
+        self.assertEqual(unit_offset(rack, 5, 1), 0)
 
 
-class FaceTest(AtlasTestCase):
+class MountingTest(AtlasTestCase):
     def setUp(self):
         self.rack = make_rack(self.site, u_height=10)
 
-    def test_a_full_depth_device_is_drawn_on_both_faces(self):
+    def test_a_full_depth_device_is_listed_once(self):
         make_device(self.site, self.rack, 'both', self.role, self.manufacturer, full_depth=True)
-        elevation = build_elevation(self.rack)
-        self.assertEqual(len(elevation.devices), 1)
-        self.assertEqual(len(elevation.rear_devices), 1)
+        self.assertEqual(len(build_elevation(self.rack).devices), 1)
 
-    def test_a_half_depth_device_shows_on_its_mounted_face_only(self):
-        # The far side really is free space there, and drawing it on both would hide exactly
-        # the room you are looking for when you ask what will fit.
-        make_device(self.site, self.rack, 'front-only', self.role, self.manufacturer, full_depth=False)
-        elevation = build_elevation(self.rack)
-        self.assertEqual(len(elevation.devices), 1)
-        self.assertEqual(elevation.rear_devices, [])
-
-    def test_ports_are_drawn_once_on_the_mounted_face(self):
-        make_device(self.site, self.rack, 'srv', self.role, self.manufacturer, interfaces=4)
-        elevation = build_elevation(self.rack)
-        self.assertTrue(elevation.devices[0].show_ports)
-        self.assertFalse(elevation.rear_devices[0].show_ports)
+    def test_it_knows_its_face_and_height(self):
+        make_device(
+            self.site, self.rack, 'back', self.role, self.manufacturer, u_height=2, face='rear', full_depth=False
+        )
+        mounted = build_elevation(self.rack).devices[0]
+        self.assertEqual(mounted.face, 'rear')
+        self.assertEqual(mounted.units, 2)
 
     def test_a_device_with_no_position_is_listed_rather_than_dropped(self):
         device = make_device(self.site, self.rack, 'floating', self.role, self.manufacturer)
@@ -61,34 +59,7 @@ class FaceTest(AtlasTestCase):
         device.save()
         elevation = build_elevation(self.rack)
         self.assertEqual([d.name for d in elevation.unplaced], ['floating'])
-
-
-class PortLayoutTest(AtlasTestCase):
-    def test_ticks_are_laid_out_within_the_device(self):
-        rack = make_rack(self.site, u_height=10)
-        make_device(self.site, rack, 'sw', self.switch_role, self.manufacturer, interfaces=8)
-        mounted = build_elevation(rack).devices[0]
-        ticks = mounted.port_layout
-        self.assertEqual(len(ticks), 8)
-        self.assertEqual([t.x for t in ticks], sorted(t.x for t in ticks))
-
-    def test_many_ports_collapse_to_a_summary_band(self):
-        # Below a readable width a tick cannot be told from its neighbour, so drawing one per
-        # port stops being information. Two bands say the same thing honestly.
-        rack = make_rack(self.site, u_height=10)
-        make_device(self.site, rack, 'big', self.switch_role, self.manufacturer, interfaces=300)
-        mounted = build_elevation(rack).devices[0]
-        self.assertTrue(mounted.summarised_ports)
-        ticks = mounted.port_layout
-        self.assertLessEqual(len(ticks), 2)
-        self.assertIn('300', ticks[0].name)
-
-    def test_a_normal_switch_still_draws_every_port(self):
-        rack = make_rack(self.site, u_height=10)
-        make_device(self.site, rack, 'sw48', self.switch_role, self.manufacturer, interfaces=48)
-        mounted = build_elevation(rack).devices[0]
-        self.assertFalse(mounted.summarised_ports)
-        self.assertEqual(len(mounted.port_layout), 48)
+        self.assertEqual(elevation.devices, [])
 
 
 class CablingTest(AtlasTestCase):
@@ -364,57 +335,3 @@ class RackSpaceTest(AtlasTestCase):
         space = build_elevation(rack).space
         ours = (space['used'] + space['reserved']) / space['total'] * 100
         self.assertAlmostEqual(ours, rack.get_utilization(), places=1)
-
-
-class ExitFanTest(AtlasTestCase):
-    """
-    Cables leaving the rack are drawn as a stub out of the device's own row. Several cables on
-    one device therefore shared a row, and seventeen uplinks off a top-of-rack switch were
-    drawn seventeen times along the same line: one stub to look at, sixteen to click through,
-    and a filtered band that stayed opaque because sixteen dimmed strokes stack back up to a
-    solid one. They fan instead, each to a line of its own.
-    """
-
-    def setUp(self):
-        self.rack = make_rack(self.site, u_height=10)
-        self.switch = make_device(
-            self.site,
-            self.rack,
-            'tor',
-            self.switch_role,
-            self.manufacturer,
-            position=10,
-            interfaces=4,
-        )
-        self.other = make_rack(self.site, name='R2', u_height=10)
-        self.far = make_device(
-            self.site,
-            self.other,
-            'far',
-            self.role,
-            self.manufacturer,
-            interfaces=4,
-        )
-
-    def _exits(self, count):
-        near = list(self.switch.interfaces.all())[:count]
-        far = list(self.far.interfaces.all())[:count]
-        for a, b in zip(near, far, strict=True):
-            cable(a, b)
-        elevation = build_elevation(self.rack)
-        return elevation, [run for run in elevation.runs if not run.internal]
-
-    def test_one_cable_leaves_on_its_own_row(self):
-        _, runs = self._exits(1)
-        self.assertEqual(runs[0].exit_y, runs[0].from_y)
-
-    def test_cables_from_one_device_each_get_a_line(self):
-        _, runs = self._exits(4)
-        self.assertEqual(len({run.from_y for run in runs}), 1)
-        self.assertEqual(len({run.exit_y for run in runs}), 4)
-
-    def test_a_fan_stays_inside_the_drawing(self):
-        elevation, runs = self._exits(4)
-        for run in runs:
-            self.assertGreaterEqual(run.exit_y, 0)
-            self.assertLessEqual(run.exit_y, elevation.height)
