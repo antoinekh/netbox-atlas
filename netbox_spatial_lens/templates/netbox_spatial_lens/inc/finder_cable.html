@@ -1,0 +1,23 @@
+{% comment %}
+One cable in the rack's cabling finder.
+
+Named by both ends and by the port at each, because "which of these is xe-0/0/3" is as much the
+question as "which of these reaches R308".
+{% endcomment %}
+<div class="lens-finder__row" data-lens-pick="{{ row.cable.pk }}"
+     data-lens-name="{{ row.local_device }} {{ row.local_name }} {{ row.peer_name }} {{ row.peer_rack }}"
+     data-lens-filterable="cables" data-band="{{ row.colour }}" tabindex="0" role="checkbox"
+     aria-checked="false">
+  <span class="lens-finder__tick" aria-hidden="true"></span>
+  <span class="lens-cable__dot" style="background: {{ row.colour }};"></span>
+  <span class="lens-finder__name">
+    {{ row.local_device }} &middot; {{ row.local_name }}
+    <i class="mdi mdi-arrow-right text-muted"></i>
+    {% if row.peer_device %}{{ row.peer_device }}{% else %}{{ row.peer_name }}{% endif %}
+  </span>
+  <span class="text-muted small lens-finder__meta">
+    {% if row.peer_rack %}{{ row.peer_rack }}{% elif not row.internal %}off-site{% endif %}
+  </span>
+  <a class="lens-cable__open" href="{{ row.cable.get_absolute_url }}"
+     title="Open this cable"><i class="mdi mdi-open-in-new"></i></a>
+</div>

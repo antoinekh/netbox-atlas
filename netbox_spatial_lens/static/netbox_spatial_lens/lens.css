@@ -1,0 +1,1507 @@
+/*
+ * netbox-spatial-lens.
+ *
+ * Three drawings and the panels beside them: a world map, a floor plan and a rack in 3D.
+ *
+ * Chrome follows NetBox's own theme variables, through the tokens in section 0, so the plugin
+ * tracks the light and dark themes without a second palette to keep in step. Only the things
+ * NetBox has no variable for, such as a grid line or a cabinet outline, are stated here, and
+ * those are given in rgba over the current text colour so they invert with the theme by
+ * themselves.
+ *
+ * Colour that *means* something never appears in this file. It comes from palette.py, through
+ * the custom properties inc/palette.html emits, so the value the server paints a rack with and
+ * the value the stylesheet paints its legend swatch with cannot drift apart.
+ *
+ * Sections
+ *   1. Shared: toolbar, stats, legend, hover card, empty states
+ *   2. The floor plan
+ *   3. The placement editor
+ *   4. The rack
+ *   5. The world map
+ *   6. The trace panel
+ */
+
+/* ==========================================================================
+ * 0. Theme tokens
+ *
+ * NetBox 4 is built on Tabler, which names its theme variables `--tblr-*` and sets no
+ * `--bs-*` variables at all. Every `var(--bs-...)` this stylesheet used to write therefore
+ * fell back to its light default in both themes: white halos round the rack names, white
+ * buttons and a white hover card on the dark page. The chrome colours are read from Tabler
+ * once, here, and switch with the theme; the rest of the file uses these names only.
+ *
+ * The accent is the plugin's own, not NetBox's teal, so a selection never reads as a link.
+ * It is lighter in the dark theme, where the light-theme blue is too dark to see.
+ * ======================================================================= */
+
+:root {
+  --lens-bg: var(--tblr-bg-surface, #fff);
+  --lens-text: var(--tblr-body-color, #212529);
+  --lens-muted: var(--tblr-secondary-color, #6c757d);
+  --lens-neutral: var(--tblr-secondary, #6c757d);
+  --lens-border: var(--tblr-border-color, #dee2e6);
+  --lens-subtle-bg: var(--tblr-tertiary-bg, #f8f9fa);
+  --lens-subtle-bg-strong: var(--tblr-secondary-bg, #e9ecef);
+  --lens-danger: var(--tblr-danger, #dc3545);
+  --lens-warning: var(--tblr-warning, #ffc107);
+  --lens-mono: var(--tblr-font-monospace, monospace);
+  --lens-accent: #0d6efd;
+  --lens-on-accent: #fff;
+}
+
+[data-bs-theme='dark'] {
+  --lens-accent: #6ea8fe;
+  --lens-on-accent: #111827;
+}
+
+/* ==========================================================================
+ * 1. Shared
+ * ======================================================================= */
+
+.lens-toolbar {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  margin-bottom: .75rem;
+  flex-wrap: wrap;
+}
+
+.lens-toolbar__spacer {
+  flex: 1 1 auto;
+}
+
+.lens-scale {
+  font-size: .8125rem;
+  white-space: nowrap;
+}
+
+.lens-help {
+  font-size: 1.125rem;
+  line-height: 1;
+  color: var(--lens-muted);
+  cursor: help;
+}
+
+.lens-help:focus-visible {
+  outline: 2px solid var(--lens-accent);
+  outline-offset: 2px;
+  border-radius: 50%;
+}
+
+.lens-empty {
+  padding: 2.5rem 1rem;
+  text-align: center;
+  color: var(--lens-muted);
+}
+
+/* ---- the level strip ----
+ *
+ * The way back up through the levels, in the same place on every level. Styled as a quiet
+ * breadcrumb rather than as buttons: it is orientation, and it should not compete with the
+ * controls that act on what you are looking at.
+ *
+ * The divider is on the levels rather than on whatever follows. As `.lens-levels + *` it landed
+ * inside the next element, and where that was a button group the border drew hard against the
+ * first button and the padding pushed it out of line. A divider belongs to the thing it
+ * divides from. */
+.lens-levels {
+  display: flex;
+  align-items: center;
+  gap: .25rem;
+  font-size: .8125rem;
+  flex: 0 0 auto;
+  min-width: 0;
+  border-right: 1px solid var(--lens-border);
+  padding-right: .75rem;
+  margin-right: .25rem;
+}
+
+.lens-levels a {
+  color: var(--lens-muted);
+  text-decoration: none;
+  padding: .125rem .25rem;
+  border-radius: .25rem;
+  white-space: nowrap;
+}
+
+.lens-levels a:hover,
+.lens-levels a:focus-visible {
+  color: var(--lens-accent);
+  background: rgba(127, 127, 127, .14);
+}
+
+.lens-levels__sep {
+  color: var(--lens-muted);
+  opacity: .5;
+}
+
+.lens-levels__here {
+  font-weight: 600;
+  padding: .125rem .25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- the stat strip ----
+ *
+ * The figures a drawing cannot state: how many, how full, how much power. They sit across the
+ * top because the space above a portrait plan is otherwise dead, and because "how much" is the
+ * question somebody arrives with, before "where".
+ *
+ * A figure that falls in a palette band wears that band as a rule down its left edge, which is
+ * the same device a trace hop uses to carry its kind. The strip and the plan are then two
+ * readings of one set of facts. */
+.lens-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+  gap: .5rem;
+  margin-bottom: .875rem;
+}
+
+.lens-stat {
+  display: flex;
+  flex-direction: column;
+  gap: .0625rem;
+  padding: .5rem .75rem;
+  border-radius: .375rem;
+  background: rgba(127, 127, 127, .07);
+  border-left: 3px solid transparent;
+}
+
+.lens-stat--toned {
+  border-left-color: var(--lens-stat-tone);
+}
+
+.lens-stat__label {
+  font-size: .6875rem;
+  color: var(--lens-muted);
+}
+
+.lens-stat__value {
+  font-size: 1.375rem;
+  font-weight: 600;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+
+.lens-stat__detail {
+  font-size: .75rem;
+  color: var(--lens-muted);
+}
+
+/* ---- legends ----
+ *
+ * A swatch, a label and a tally, so the counts line up in a column rather than trailing each
+ * label at a different place. A band nothing falls in stays listed, because the bands are the
+ * scale and a scale with gaps is harder to read than one with zeroes; it recedes rather than
+ * disappearing. */
+.lens-legend {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 .75rem;
+}
+
+.lens-legend li {
+  padding: 0;
+}
+
+.lens-legend__row {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  width: 100%;
+  padding: .1875rem .25rem;
+  font-size: .875rem;
+  text-align: left;
+  color: inherit;
+  background: none;
+  border: 0;
+  border-radius: .25rem;
+}
+
+.lens-legend li.is-empty {
+  opacity: .45;
+}
+
+.lens-legend__label {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.lens-legend__count {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--lens-muted);
+}
+
+.lens-swatch {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, .25);
+  flex: 0 0 auto;
+}
+
+.lens-swatch--reserved {
+  background: rgba(201, 72, 63, .3);
+  border-color: rgba(201, 72, 63, .85);
+  border-style: dashed;
+}
+
+/* Picked out of a legend band.
+ *
+ * One class for all three drawings, because it is one behaviour: a rack, a device, a cable and a
+ * site all recede the same way when the reader has asked to see something else. Receding rather
+ * than leaving, because a thing that vanishes takes the shape of its drawing with it, and the
+ * shape is what a plan, an elevation and a map are all for.
+ *
+ * Deliberately not `is-dimmed`. The rack and the map each have a selection model that owns that
+ * class and clears it wholesale on every click, so sharing it would have made picking a band and
+ * selecting a device cancel each other out at random. */
+.is-filtered {
+  opacity: .14;
+  pointer-events: none;
+}
+
+.lens-rack,
+.lens-cable {
+  transition: opacity .12s ease;
+}
+
+/* A filterable legend is a set of controls, so it says so: the rows take a cursor and a hover,
+   and the picked one keeps a mark after the pointer leaves. */
+.lens-legend--filterable button.lens-legend__row:not(:disabled) {
+  cursor: pointer;
+}
+
+.lens-legend--filterable button.lens-legend__row:not(:disabled):hover {
+  background: rgba(127, 127, 127, .14);
+}
+
+.lens-legend--filterable .lens-legend__row.is-picked {
+  background: rgba(127, 127, 127, .2);
+  box-shadow: inset 2px 0 0 var(--lens-accent);
+  font-weight: 600;
+}
+
+.lens-legend--filterable button.lens-legend__row:focus-visible {
+  outline: 2px solid var(--lens-accent);
+  outline-offset: -2px;
+}
+
+/* ---- find-a-rack ---- */
+
+.lens-find {
+  display: flex;
+  align-items: center;
+  gap: .375rem;
+  padding: .125rem .5rem;
+  border: 1px solid var(--lens-border);
+  border-radius: .25rem;
+  color: var(--lens-muted);
+  font-size: .8125rem;
+}
+
+.lens-find input {
+  border: 0;
+  background: none;
+  color: inherit;
+  outline: none;
+  width: 8rem;
+  padding: .1875rem 0;
+}
+
+.lens-find:focus-within {
+  border-color: var(--lens-accent);
+}
+
+/* A search matching nothing dims the whole room, which looks exactly like a plan that failed
+   to load. The box says which of the two it is. */
+.lens-find.is-empty {
+  border-color: var(--lens-danger);
+  color: var(--lens-danger);
+}
+
+/* ---- the hover card ----
+ *
+ * Used by the plan and, through MapLibre's popup, by the map. A name alone does not answer
+ * "which of these is the one I want"; where it is, who owns it and how big it is do.
+ *
+ * The `:not()` matters. MapLibre puts the class we hand it on the popup's outer element and
+ * draws the visible box in a child, so styling both painted a card inside a card: two borders,
+ * two shadows, and an empty margin of white down the right of every hover. The outer element
+ * only positions; the inner one is the card. */
+.lens-card:not(.maplibregl-popup),
+.maplibregl-popup.lens-card .maplibregl-popup-content {
+  background: var(--lens-bg);
+  color: var(--lens-text);
+  border: 1px solid var(--lens-border);
+  border-radius: .375rem;
+  box-shadow: 0 .5rem 1rem rgba(0, 0, 0, .15);
+  padding: .5rem .625rem;
+  font-size: .8125rem;
+  /* Sized to its content up to a limit, rather than to the library's narrow default, which
+     broke "North Carolina" over two lines and a street address over five. */
+  width: max-content;
+  max-width: 22rem;
+  white-space: normal;
+}
+
+/* MapLibre draws the little arrow as its own element, in its own colour. */
+.maplibregl-popup.lens-card .maplibregl-popup-tip {
+  border-top-color: var(--lens-border);
+  border-bottom-color: var(--lens-border);
+}
+
+.lens-card__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .5rem;
+  margin-bottom: .25rem;
+}
+
+.lens-card__status {
+  font-size: .6875rem;
+  color: var(--lens-muted);
+}
+
+/* What the overlay currently says about this rack, above the facts that do not change with it.
+   The swatch ties the sentence to the box under the cursor. */
+.lens-card__reading {
+  display: flex;
+  align-items: center;
+  gap: .375rem;
+  margin-bottom: .3125rem;
+  font-weight: 600;
+}
+
+.lens-card__reading .lens-swatch {
+  width: .75rem;
+  height: .75rem;
+}
+
+.lens-card__facts {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.lens-card__facts th {
+  font-weight: 400;
+  color: var(--lens-muted);
+  padding: .0625rem .75rem .0625rem 0;
+  white-space: nowrap;
+  vertical-align: top;
+}
+
+.lens-card__facts td {
+  padding: .0625rem 0;
+}
+
+/* The address is the one fact worth wrapping; everything else reads better on one line. */
+.lens-card__facts tr:last-child td {
+  max-width: 14rem;
+}
+
+.lens-card__links {
+  margin-top: .25rem;
+  color: var(--lens-muted);
+}
+
+.lens-card__action {
+  margin-top: .375rem;
+  padding-top: .3125rem;
+  border-top: 1px solid var(--lens-border);
+  font-size: .75rem;
+  color: var(--lens-accent);
+}
+
+/* ---- card headers ----
+ *
+ * NetBox's .card-header is a plain block, so a heading and its qualifier ran together as
+ * "Port allocationwhole rack". Laying the header out as a row separates them and keeps the
+ * qualifier on the right where it reads as a subtitle rather than as part of the title. */
+.card-header:has(.lens-scope),
+.card-header:has(.badge) {
+  display: flex;
+  align-items: baseline;
+  gap: .5rem;
+  flex-wrap: wrap;
+}
+
+.lens-scope {
+  margin-left: auto;
+  font-size: .8125rem;
+  font-weight: 400;
+  color: var(--lens-muted);
+  text-align: right;
+}
+
+/* ---- 3D stages ----
+ *
+ * A Three.js canvas with its labels drawn as page elements over it, the view controls and the
+ * hover card in the corners. Shared by the rack and the floor. The ground is a soft light from
+ * above rather than a flat fill, so what is drawn stands on something in both themes. */
+
+.lens-3d {
+  height: 74vh;
+  min-height: 28rem;
+  border-radius: .375rem;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 90% at 50% 18%, rgba(127, 127, 127, .02), rgba(127, 127, 127, .14)),
+    var(--lens-bg);
+}
+
+.lens-3d:fullscreen {
+  height: 100vh;
+  border-radius: 0;
+}
+
+.lens-3d__canvas,
+.lens-3d__canvas canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.lens-3d__canvas canvas {
+  display: block;
+  cursor: grab;
+  touch-action: none;
+}
+
+.lens-3d__canvas canvas:active {
+  cursor: grabbing;
+}
+
+/* The labels follow the rack, but never take a click from it. */
+.lens-3d__labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.lens-3d__controls {
+  position: absolute;
+  top: .75rem;
+  left: .75rem;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+}
+
+.lens-3d__controls[hidden] {
+  display: none;
+}
+
+/* Solid behind the outline buttons, which are transparent and would otherwise sit straight on
+   the rack. */
+.lens-3d__controls .btn-group {
+  background: var(--lens-bg);
+  border-radius: var(--tblr-border-radius, .25rem);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .12);
+}
+
+.lens-3d__tip {
+  position: absolute;
+  z-index: 3;
+  max-width: 22rem;
+  padding: .45rem .6rem;
+  font-size: .75rem;
+  line-height: 1.35;
+  color: var(--lens-text);
+  background: var(--lens-bg);
+  border: 1px solid var(--lens-border);
+  border-radius: .375rem;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .16);
+  pointer-events: none;
+}
+
+.lens-3d__tip[hidden] {
+  display: none;
+}
+
+.lens-3d__tip strong {
+  display: block;
+  margin-bottom: .1rem;
+  font-weight: 600;
+}
+
+.lens-3d__tip div {
+  color: var(--lens-muted);
+}
+
+.lens-3d__name,
+.lens-3d__end {
+  padding: .1rem .4rem;
+  font-size: .6875rem;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+  color: #f8fafc;
+  background: rgba(17, 24, 39, .78);
+  border-radius: .25rem;
+  backdrop-filter: blur(2px);
+}
+
+.lens-3d__end {
+  font-weight: 500;
+  color: var(--lens-text);
+  background: var(--lens-bg);
+  border: 1px solid var(--lens-border);
+}
+
+.lens-3d__free {
+  font-size: .6875rem;
+  color: var(--lens-muted);
+  white-space: nowrap;
+}
+
+/* ==========================================================================
+ * 2. The floor plan
+ * ======================================================================= */
+
+/* The drawing takes the card's width, and the height the room's own shape gives it, up to most
+ * of the window. A wide room is drawn at full width with no empty band above and below it; a
+ * tall room is capped at the window and the zoom controls enlarge it from there, so a tall
+ * room or a thirty-metre hall is read at the scale its racks need. Zooming keeps the room's
+ * proportions, so the box does not change size while zoomed. */
+.lens-plan {
+  position: relative;
+}
+
+.lens-floor {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 72vh;
+  min-height: 12rem;
+  touch-action: none;
+}
+
+.lens-floor.is-zoomed {
+  cursor: grab;
+}
+
+.lens-floor.is-panning {
+  cursor: grabbing;
+}
+
+/* Bottom right, clear of the scale rules along the top and left edges. */
+.lens-zoom {
+  position: absolute;
+  right: .5rem;
+  bottom: .5rem;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+}
+
+.lens-zoom .btn {
+  background: var(--lens-bg);
+}
+
+.lens-hover {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.lens-room {
+  fill: rgba(127, 127, 127, .07);
+  stroke: currentColor;
+  stroke-opacity: .35;
+  stroke-width: 3;
+}
+
+.lens-grid-line {
+  stroke: currentColor;
+  stroke-opacity: .13;
+  stroke-width: 2;
+}
+
+/* The scale along the top and left edges. Quiet: it is the paper the plan is drawn on, not
+   part of the plan. Tabular figures so 10 and 12 sit in the same column. */
+.lens-scale-rule text {
+  fill: currentColor;
+  opacity: .55;
+  font-variant-numeric: tabular-nums;
+}
+
+.lens-scale-rule line {
+  stroke: currentColor;
+  stroke-opacity: .4;
+  stroke-width: 2;
+}
+
+.lens-scale-rule__unit {
+  opacity: .4;
+  font-style: italic;
+}
+
+/* A background layer is under the room's own drawing, so it must not compete with it: no
+   stroke, no interaction, and the opacity is the layer's own. */
+.lens-layers image {
+  pointer-events: none;
+}
+
+/* ---- racks on the plan ---- */
+
+.lens-rack-body {
+  fill: var(--lens-neutral);
+  stroke: rgba(0, 0, 0, .45);
+  stroke-width: 2;
+}
+
+/* A gauged rack shows its magnitude in the bar at its foot, so the body backs off to let the
+   name and the number read. An ungauged one has nothing but its colour to say with, and keeps
+   it at full strength. */
+.lens-rack--gauged .lens-rack-body {
+  fill-opacity: .3;
+}
+
+/* Dashed rather than merely grey: a rack the overlay knows nothing about must not be mistaken
+   for one it has measured and found unremarkable. */
+.lens-rack--nodata .lens-rack-body {
+  stroke-dasharray: 10 6;
+}
+
+.lens-rack-front {
+  fill: rgba(0, 0, 0, .38);
+}
+
+.lens-rack-gauge__track {
+  fill: currentColor;
+  fill-opacity: .12;
+}
+
+.lens-rack-gauge__fill {
+  fill-opacity: .95;
+}
+
+.lens-rack-label,
+.lens-rack-value {
+  /* The size comes from the drawing, not from here: it is set once per floor so every name on
+     one plan is the same size. This is only the fallback for a rack that somehow has none.
+
+     The halo has to stay well under the width that would swallow the letterforms: a room draws
+     at roughly half scale, so 2 here is about one pixel, where the 5 it was came out near
+     three and turned every label to mush. */
+  font-size: 19px;
+  fill: currentColor;
+  paint-order: stroke;
+  stroke: var(--lens-bg);
+  stroke-width: 2;
+  pointer-events: none;
+  user-select: none;
+}
+
+.lens-rack-label {
+  font-weight: 600;
+}
+
+.lens-rack-value {
+  font-weight: 500;
+  opacity: .75;
+  font-variant-numeric: tabular-nums;
+}
+
+.lens-rack {
+  cursor: pointer;
+}
+
+.lens-rack:hover .lens-rack-body {
+  stroke: var(--lens-accent);
+  stroke-width: 5;
+}
+
+/* A rack on the floor page is a link, and the link colour must not reach its name: the label
+   is `fill: currentColor`, and inside an `<a>` that was the theme's link colour on a coloured
+   cabinet. Inherited, it is the page's text colour, as on the site page where it is no link. */
+.lens-rack-link,
+.lens-rack-link:hover {
+  color: inherit;
+}
+
+/* The focus ring is drawn on the cabinet rather than as an outline, which on an SVG link is a
+   box around the whole rotated group. */
+.lens-rack-link:focus {
+  outline: none;
+}
+
+.lens-rack-link:focus-visible .lens-rack-body {
+  stroke: var(--lens-accent);
+  stroke-width: 5;
+}
+
+/* ---- the rack table under the plan ---- */
+
+/* NetBox writes table headings in capitals; a sort button does not inherit that, so without this
+   the one heading that does not sort (Tags) was the only one in capitals. As specific as
+   NetBox's own `.table thead th`, so it wins by coming later. */
+.table.lens-rack-table thead th {
+  text-transform: none;
+}
+
+.lens-rack-table th[data-sort] {
+  white-space: nowrap;
+}
+
+/* A heading that sorts is a button, so the keyboard reaches it; it looks like the heading. */
+.lens-sort {
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.lens-sort:focus-visible {
+  outline: 2px solid var(--lens-accent);
+  outline-offset: 2px;
+}
+
+.lens-rack-table th[aria-sort="ascending"]::after {
+  content: " \25B2";
+  font-size: .625rem;
+}
+
+.lens-rack-table th[aria-sort="descending"]::after {
+  content: " \25BC";
+  font-size: .625rem;
+}
+
+.lens-rack-table td.lens-num,
+.lens-rack-table th.lens-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A table row narrowed out by the legend or the search box leaves the table. On the plan a
+   rack recedes to keep its place in the room; a row has no place to keep. */
+.lens-rack-table tr.is-filtered,
+.lens-rack-table tr.is-searched-out,
+.lens-rack-table tr.is-unfocused {
+  display: none;
+}
+
+/* The search box narrows the plan the same way a legend band does, and by a different class, so
+   the two compose without either having to know about the other. */
+.lens-floor--filtering .lens-rack {
+  transition: opacity .12s ease;
+}
+
+.lens-rack.is-searched-out,
+.lens-rack.is-unfocused {
+  opacity: .14;
+  pointer-events: none;
+}
+
+/* ---- cabling across the floor ---- */
+
+/* Round caps so a run reads as a bundle arriving at a cabinet rather than a beam ending in a
+   corner, and translucent so crossing runs stay countable. */
+.lens-floor-run {
+  stroke: var(--lens-kind-interface, #4c8dbf);
+  stroke-opacity: .45;
+  stroke-linecap: round;
+  shape-rendering: geometricPrecision;
+}
+
+.lens-floor-run:hover {
+  stroke-opacity: .95;
+}
+
+/* An exit is dashed because it does not end where it is drawn: the far end is somewhere off
+   this plan, and a solid line to a wall would claim otherwise. */
+.lens-floor-exit line {
+  stroke-dasharray: 14 10;
+  stroke-linecap: butt;
+  stroke-opacity: .85;
+  shape-rendering: geometricPrecision;
+}
+
+.lens-floor-exit circle {
+  fill-opacity: .9;
+  stroke: var(--lens-bg);
+  stroke-width: 2;
+}
+
+.lens-floor-exit:hover line,
+.lens-floor-exit:hover circle {
+  stroke-opacity: 1;
+  fill-opacity: 1;
+}
+
+/* ==========================================================================
+ * 3. The placement editor
+ * ======================================================================= */
+
+.lens-floor--editing .lens-rack {
+  cursor: grab;
+}
+
+.lens-floor--editing .lens-rack.is-dragging {
+  cursor: grabbing;
+}
+
+.lens-rack.is-selected .lens-rack-body {
+  stroke: var(--lens-accent);
+  stroke-width: 6;
+}
+
+.lens-rack.is-dirty .lens-rack-body {
+  stroke: var(--lens-warning);
+  stroke-width: 6;
+}
+
+.lens-unplaced {
+  max-height: 26rem;
+  overflow-y: auto;
+}
+
+.lens-unplaced__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  padding: .375rem .5rem;
+  border-radius: .25rem;
+  cursor: pointer;
+}
+
+.lens-unplaced__item:hover {
+  background: rgba(127, 127, 127, .15);
+}
+
+.lens-unplaced__item.is-selected {
+  background: var(--lens-accent);
+  color: var(--lens-on-accent);
+}
+
+.lens-editor-status {
+  min-height: 1.5rem;
+  font-size: .875rem;
+}
+
+/* ==========================================================================
+ * 4. The rack
+ *
+ * The column beside the rack drawing. The drawing itself is a 3D stage, see section 1.
+ * ======================================================================= */
+
+/* ---- selection in the list ----
+ * The cable picked, the cables of the device picked, and the rest dimmed rather than hidden, so
+ * the list keeps the rest of the rack as context. */
+
+.lens-cable.is-dimmed {
+  opacity: .18;
+}
+
+.lens-cable.is-selected {
+  background: rgba(13, 110, 253, .18);
+}
+
+.lens-cable.is-related {
+  background: rgba(127, 127, 127, .14);
+}
+
+/* ---- port allocation ---- */
+
+.lens-alloc__row {
+  margin-bottom: .625rem;
+}
+
+.lens-alloc__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: .5rem;
+  font-size: .8125rem;
+  margin-bottom: .1875rem;
+}
+
+.lens-alloc__count {
+  color: var(--lens-muted);
+  white-space: nowrap;
+}
+
+.lens-alloc__bar {
+  height: .5rem;
+  border-radius: .25rem;
+  background: rgba(127, 127, 127, .22);
+  overflow: hidden;
+}
+
+.lens-alloc__fill {
+  display: block;
+  height: 100%;
+}
+
+.lens-alloc__fill--interface   { background: var(--lens-kind-interface); }
+.lens-alloc__fill--power       { background: var(--lens-kind-power); }
+.lens-alloc__fill--console     { background: var(--lens-kind-console); }
+.lens-alloc__fill--passthrough { background: var(--lens-kind-passthrough); }
+
+/* ---- the cable list ---- */
+
+.lens-cable {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .25rem .375rem;
+  border-radius: .25rem;
+  font-size: .8125rem;
+  cursor: pointer;
+}
+
+.lens-cable__dot {
+  width: .625rem;
+  height: .625rem;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.lens-cable__local {
+  flex: 0 0 auto;
+  font-family: var(--lens-mono);
+}
+
+.lens-cable__peer {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The "open this object" affordance on a list row. Hidden until the row is hovered or focused,
+   so a long list stays quiet, but always reachable from the keyboard. */
+.lens-cable__open {
+  margin-left: auto;
+  flex: 0 0 auto;
+  opacity: 0;
+  color: var(--lens-muted);
+  padding: 0 .125rem;
+}
+
+.lens-cable:hover .lens-cable__open,
+.lens-cable__open:focus-visible {
+  opacity: 1;
+}
+
+.lens-cable__open:hover {
+  color: var(--lens-accent);
+}
+
+/* ---- per-device power ---- */
+
+.lens-power {
+  margin-top: .875rem;
+  padding-top: .625rem;
+  border-top: 1px solid var(--lens-border);
+}
+
+.lens-power__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: .5rem;
+  font-size: .8125rem;
+  font-weight: 600;
+  margin-bottom: .3125rem;
+}
+
+.lens-power__head .text-muted {
+  font-weight: 400;
+}
+
+.lens-power__row {
+  display: flex;
+  align-items: center;
+  gap: .375rem;
+  font-size: .8125rem;
+  padding: .125rem 0;
+}
+
+.lens-power__port {
+  font-family: var(--lens-mono);
+  flex: 0 0 auto;
+}
+
+/* ==========================================================================
+ * 5. The world map
+ * ======================================================================= */
+
+/* The tile map. Height rather than aspect ratio: a map is a window onto the world, not a
+   picture with a fixed shape. */
+.lens-map {
+  height: 72vh;
+  min-height: 22rem;
+  border-radius: .375rem;
+  z-index: 0;
+}
+
+/* What covers the map until it is drawn, and stays there with the reason when it cannot be:
+   no WebGL, or MapLibre could not be loaded. The 3D rack stage uses the same cover. */
+.lens-map-message {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+  color: var(--lens-muted);
+  background: rgba(127, 127, 127, .07);
+  border-radius: .375rem;
+}
+
+.lens-map-message[hidden] {
+  display: none;
+}
+
+.lens-map-message.is-error {
+  color: var(--lens-text);
+}
+
+/* MapLibre ships its own light panel styling, which reads as a white box in NetBox's dark
+   theme. These follow the theme instead. */
+.lens-map .maplibregl-ctrl-attrib,
+.lens-map .maplibregl-ctrl-group,
+.lens-map .maplibregl-ctrl-group button {
+  background: var(--lens-bg);
+  color: var(--lens-text);
+}
+
+.lens-map .maplibregl-ctrl-group button + button {
+  border-top-color: var(--lens-border);
+}
+
+.lens-map .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  filter: var(--lens-ctrl-icon-filter, none);
+}
+
+[data-bs-theme='dark'] .lens-map {
+  --lens-ctrl-icon-filter: invert(1);
+}
+
+/* The basemap is muted in the style rather than here.
+ *
+ * It used to be a CSS filter on Leaflet's tile pane, with the markers and lines in panes above
+ * it that the filter did not reach. MapLibre draws everything into one canvas, so a filter here
+ * would grey out the circuits along with the roads under them. `raster-saturation` and the
+ * background layer beneath do the same job inside the renderer, where they apply to the tiles
+ * and to nothing else. */
+
+/* The line in a map tooltip that says what a click will do. Quieter than the name above it,
+   because it is guidance rather than data. */
+.lens-tip-action {
+  opacity: .7;
+  font-size: .75rem;
+}
+
+/* ==========================================================================
+ * 6. The trace panel
+ * ======================================================================= */
+
+.lens-hops {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.lens-hop {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .3125rem .375rem .3125rem .5rem;
+  font-size: .8125rem;
+  border-left: 3px solid var(--lens-neutral);
+  margin-bottom: .1875rem;
+  background: rgba(127, 127, 127, .07);
+  border-radius: 0 .25rem .25rem 0;
+}
+
+/* The border colour says what kind of hop it is, matching the cable colours in the drawing. */
+.lens-hop--interface   { border-left-color: var(--lens-kind-interface); }
+.lens-hop--power       { border-left-color: var(--lens-kind-power); }
+.lens-hop--console     { border-left-color: var(--lens-kind-console); }
+.lens-hop--passthrough { border-left-color: var(--lens-kind-passthrough); }
+.lens-hop--circuit     { border-left-color: var(--lens-kind-circuit); }
+
+.lens-hop__index {
+  flex: 0 0 auto;
+  width: 1.25rem;
+  text-align: center;
+  color: var(--lens-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.lens-hop__from,
+.lens-hop__to {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lens-hop__from {
+  font-family: var(--lens-mono);
+}
+
+/* ==========================================================================
+ * Crispness, and motion
+ *
+ * Axis-aligned edges are snapped to the pixel grid; curves and diagonals are not, because
+ * crispEdges turns off anti-aliasing and a bowed cable would come out as a staircase.
+ * ======================================================================= */
+
+.lens-rack-body,
+.lens-rack-front,
+.lens-room {
+  shape-rendering: crispEdges;
+}
+
+.lens-rack-gauge__fill {
+  shape-rendering: geometricPrecision;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lens-rack,
+  .lens-cable {
+    transition: none;
+  }
+}
+
+/* ---- the world map's furniture ----
+ *
+ * The map is the one drawing on its page that wants the whole width, and it used to give a
+ * third of it away to a permanent column of lists nobody reads twice a day. The legends stayed,
+ * because a legend here is a filter and filters are used constantly; they moved onto the map.
+ * The lists went behind two buttons in the toolbar, which keep their counts so the number the
+ * column was really conveying at a glance is still there while it is shut. */
+.lens-stage {
+  position: relative;
+}
+
+.lens-map-legends {
+  position: absolute;
+  top: .75rem;
+  right: .75rem;
+  z-index: 5; /* over the map canvas and its controls */
+  max-width: 15rem;
+  border: 1px solid var(--lens-border);
+  border-radius: .375rem;
+  background: color-mix(in srgb, var(--lens-bg) 92%, transparent);
+  backdrop-filter: blur(3px);
+  box-shadow: 0 .125rem .5rem rgba(0, 0, 0, .12);
+}
+
+.lens-map-legends__body {
+  padding: .5rem .625rem;
+  max-height: min(60vh, 26rem);
+  overflow-y: auto;
+}
+
+/* Collapsed, the panel is just its own handle: on a small screen, or a map whose interesting
+   corner is behind it, the legend has to be able to get out of the way. */
+.lens-map-legends.is-collapsed .lens-map-legends__body {
+  display: none;
+}
+
+.lens-map-legends.is-collapsed .lens-map-legends__toggle i {
+  transform: rotate(180deg);
+}
+
+.lens-map-legends__toggle {
+  position: absolute;
+  top: .125rem;
+  right: .125rem;
+  padding: .125rem .25rem;
+  border: 0;
+  border-radius: .25rem;
+  background: none;
+  color: var(--lens-muted);
+  line-height: 1;
+}
+
+.lens-map-legends__toggle:hover {
+  background: var(--lens-subtle-bg);
+  color: var(--lens-text);
+}
+
+.lens-map-legend + .lens-map-legend {
+  margin-top: .5rem;
+  padding-top: .5rem;
+  border-top: 1px solid var(--lens-border);
+}
+
+.lens-map-legend__title {
+  margin: 0 1.25rem .25rem 0;
+  font-size: .75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--lens-muted);
+}
+
+
+/* ---- the finders ----
+ *
+ * A list that hangs under the button that opens it. It used to be a column beside the map,
+ * which cost a third of the width of the one drawing that wants all of it, and then a panel
+ * below the map, which put it outside the corner of the eye you were using and made you give
+ * up the map to reach it.
+ *
+ * Over the map, not pushing it: opening a list must not move the thing you are reading. */
+.lens-finder {
+  position: relative;
+}
+
+.lens-finder__caret {
+  margin-left: .125rem;
+  transition: transform .12s ease;
+}
+
+.lens-finder__toggle[aria-expanded='true'] {
+  background: var(--lens-subtle-bg-strong);
+  border-color: var(--lens-muted);
+}
+
+.lens-finder__toggle[aria-expanded='true'] .lens-finder__caret {
+  transform: rotate(180deg);
+}
+
+/* Marked while the group is narrowed, so the button says so without the script knowing which
+   element carries the message. */
+.lens-finder.is-picking .lens-finder__toggle {
+  border-color: var(--lens-accent);
+  color: var(--lens-accent);
+}
+
+.lens-finder__panel {
+  position: absolute;
+  top: calc(100% + .25rem);
+  left: 0;
+  z-index: 10; /* over the map canvas and the legends that float on it */
+  width: 22rem;
+  max-width: 90vw;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--lens-border);
+  border-radius: .375rem;
+  background: var(--lens-bg);
+  box-shadow: 0 .5rem 1rem rgba(0, 0, 0, .15);
+}
+
+/* Right-aligned when the button is near the right edge, so the panel stays on screen. */
+.lens-finder--right .lens-finder__panel {
+  left: auto;
+  right: 0;
+}
+
+.lens-finder__search {
+  display: flex;
+  align-items: center;
+  gap: .375rem;
+  padding: .375rem .625rem;
+  border-bottom: 1px solid var(--lens-border);
+  color: var(--lens-muted);
+}
+
+.lens-finder__search input {
+  flex: 1;
+  border: 0;
+  background: none;
+  color: var(--lens-text);
+  outline: none;
+  font-size: .8125rem;
+  padding: .125rem 0;
+}
+
+.lens-finder__list {
+  overflow-y: auto;
+  max-height: min(22rem, 45vh);
+  padding: .25rem;
+}
+
+.lens-finder__row {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .25rem .375rem;
+  border-radius: .25rem;
+  cursor: pointer;
+  font-size: .8125rem;
+}
+
+.lens-finder__row:hover,
+.lens-finder__row:focus-visible {
+  background: var(--lens-subtle-bg);
+  outline: none;
+}
+
+/* The tick. Drawn rather than an <input>, because the whole row is the target and a real
+   checkbox inside it would give the row a second, smaller one that behaves differently. */
+.lens-finder__tick {
+  flex: 0 0 auto;
+  width: .875rem;
+  height: .875rem;
+  border: 1px solid var(--lens-border);
+  border-radius: .1875rem;
+  position: relative;
+}
+
+.lens-finder__row[aria-checked='true'] .lens-finder__tick {
+  background: var(--lens-accent);
+  border-color: var(--lens-accent);
+}
+
+.lens-finder__row[aria-checked='true'] .lens-finder__tick::after {
+  content: '';
+  position: absolute;
+  left: .25rem;
+  top: .0625rem;
+  width: .25rem;
+  height: .5rem;
+  border: solid var(--lens-on-accent);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.lens-finder__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lens-finder__meta {
+  flex: 0 0 auto;
+}
+
+/* Ruled out by the search box. Hidden rather than dimmed: this list is a way to find one row
+   among many, and a dimmed row is still a row to read past. */
+.lens-finder__row.is-hidden {
+  display: none;
+}
+
+.lens-finder__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  padding: .375rem .625rem;
+  border-top: 1px solid var(--lens-border);
+  font-size: .75rem;
+  color: var(--lens-muted);
+}
+
+/* A cable outside the ticked set. Its own class, never `is-filtered`, because the legend owns
+   that one and the two narrowings have to compose rather than overwrite.
+
+   Still a row you can read and click in the list, the way an unticked row in the finder is, so
+   it recedes less than the cable does in the drawing. */
+.lens-cable.is-unfocused {
+  opacity: .4;
+}
+
+.lens-ungeocoded {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .25rem 1.25rem;
+}
+
+/* The rooms in a site: an index of plans, not a list of names.
+
+   A grid that gives each room a card of its own, so four rooms are compared side by side
+   rather than scrolled through. The plan inside is the real layout at thumbnail height, which
+   is what makes a half-empty hall look half empty here as well as on its own page. */
+.lens-rooms {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(22rem, 1fr));
+  gap: 1rem;
+  margin-top: .75rem;
+}
+
+.lens-room {
+  border: 1px solid var(--tblr-border-color);
+  border-radius: var(--tblr-border-radius);
+  padding: .75rem;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+
+.lens-room__head {
+  display: flex;
+  align-items: baseline;
+  gap: .5rem;
+  text-decoration: none;
+}
+
+.lens-room__name {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.lens-room__where {
+  font-size: .8125rem;
+  color: var(--tblr-secondary);
+}
+
+/* The thumbnail overrides the full-page plan height. Everything else about the drawing is
+   the same markup, so a room cannot be drawn one way here and another way there. */
+/* The thumbnail is a link, and the drawing inside it is `currentColor` throughout: without this
+   the rack names, the room outline and the scale all took the theme's link colour. */
+.lens-room__plan,
+.lens-room__plan:hover {
+  display: block;
+  color: inherit;
+}
+
+.lens-room__plan .lens-floor {
+  height: 16rem;
+  min-height: 0;
+  margin-inline: auto;
+}
+
+.lens-room__empty,
+.lens-room__unplaced {
+  margin: 0;
+}
+
+.lens-room__unplaced {
+  margin-top: 1rem;
+}
+
+/* The finder above the cabling list. Full width of the card, so its panel has room to show a
+   cable's two ends without wrapping them. */
+.lens-cables__controls {
+  margin-bottom: .5rem;
+}
+
+.lens-cables__controls .lens-finder,
+.lens-cables__controls .lens-finder__toggle {
+  width: 100%;
+}
+
+.lens-cables__controls .lens-finder__toggle {
+  justify-content: flex-start;
+}
+
+.lens-cables__controls .lens-finder__panel {
+  width: 100%;
+  min-width: 0;
+}

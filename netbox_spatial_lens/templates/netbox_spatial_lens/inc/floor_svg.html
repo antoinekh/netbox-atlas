@@ -1,0 +1,187 @@
+{% load lens %}
+{% comment %}
+The floor itself.
+
+One SVG in room coordinates: the viewBox is the room in centimetres plus a margin for the
+scale, so every rack is drawn at its true size and the browser does the scaling. Nothing here
+computes pixels, which is what lets the same markup serve the read-only view and the editor.
+
+Each rack is a <g> translated to its centre and then rotated, so a rotation turns the rack
+where it stands instead of swinging it around a corner. The shapes inside are drawn from half
+a footprint back, which is what offset_x and offset_y are.
+
+Identity and geometry ride on data attributes. The editor reads and writes those, and never
+re-parses the page.
+{% endcomment %}
+<svg class="lens-floor"
+     viewBox="-{{ view.margin|floatformat:1 }} -{{ view.margin|floatformat:1 }} {{ view.view_width|floatformat:1 }} {{ view.view_depth|floatformat:1 }}"
+     preserveAspectRatio="xMidYMid meet"
+     {% if zoomable %}data-lens-zoomable{% endif %}
+     data-floor-id="{{ floor.pk }}"
+     data-width="{{ floor.width_cm }}" data-depth="{{ floor.depth_cm }}"
+     data-grid="{{ grid_size|default:0 }}">
+
+  <defs>
+    {% comment %}
+    A metre grid, not an arbitrary one. The old pattern ruled every 100 cm whatever the room,
+    which in a thirty-metre hall was a mesh and in a comms closet was one line; this is the
+    same step the scale along the edges is labelled in, so a square on the plan is a square
+    somebody can pace out.
+    {% endcomment %}
+    <pattern id="lens-grid-{{ floor.pk }}" width="{{ view.step|floatformat:1 }}" height="{{ view.step|floatformat:1 }}"
+             patternUnits="userSpaceOnUse">
+      <path d="M {{ view.step|floatformat:1 }} 0 L 0 0 0 {{ view.step|floatformat:1 }}" fill="none" class="lens-grid-line"/>
+    </pattern>
+  </defs>
+
+  {% comment %}
+  The scale. A plan without one is a picture: it says which rack is beside which, and nothing
+  about how far apart they are or whether a pallet fits down the aisle. Drawn outside the room
+  on two edges, in metres, because metres are what somebody pacing a room counts in.
+  {% endcomment %}
+  <g class="lens-scale-rule" aria-hidden="true" style="font-size: {{ view.font|floatformat:1 }}px;">
+    {% for pos, name in x_ticks %}
+      <line x1="{{ pos|floatformat:1 }}" y1="-{{ view.tick_size|floatformat:1 }}" x2="{{ pos|floatformat:1 }}" y2="0"/>
+      <text x="{{ pos|floatformat:1 }}" y="-{{ view.tick_gap|floatformat:1 }}" text-anchor="middle">{{ name }}</text>
+    {% endfor %}
+    {% for pos, name in y_ticks %}
+      <line x1="-{{ view.tick_size|floatformat:1 }}" y1="{{ pos|floatformat:1 }}" x2="0" y2="{{ pos|floatformat:1 }}"/>
+      <text x="-{{ view.tick_gap|floatformat:1 }}" y="{{ pos|floatformat:1 }}" text-anchor="end" dominant-baseline="middle">{{ name }}</text>
+    {% endfor %}
+    <text class="lens-scale-rule__unit" x="-{{ view.tick_gap|floatformat:1 }}" y="-{{ view.tick_gap|floatformat:1 }}" text-anchor="end">m</text>
+  </g>
+
+  <rect x="0" y="0" width="{{ floor.width_cm }}" height="{{ floor.depth_cm }}" class="lens-room"/>
+
+  {% comment %}
+  Background layers: an architectural drawing or a photograph, placed in room centimetres and
+  stretched to the box it was given. Drawn before the grid so the grid stays readable over it,
+  and in `weight` order, which is what stacks a rack grid over a floor plan over a photograph.
+  {% endcomment %}
+  {% if layers %}
+    <g class="lens-layers">
+      {% for layer in layers %}
+        <image href="{{ layer.source }}"
+               x="{{ layer.x|floatformat:1 }}" y="{{ layer.y|floatformat:1 }}"
+               width="{{ layer.width|floatformat:1 }}" height="{{ layer.height|floatformat:1 }}"
+               opacity="{{ layer.opacity }}"
+               preserveAspectRatio="none"
+               {% if layer.rotation %}transform="rotate({{ layer.rotation|floatformat:1 }} {{ layer.centre_x|floatformat:1 }} {{ layer.centre_y|floatformat:1 }})"{% endif %}>
+          <title>{{ layer.name }}</title>
+        </image>
+      {% endfor %}
+    </g>
+  {% endif %}
+
+  <rect x="0" y="0" width="{{ floor.width_cm }}" height="{{ floor.depth_cm }}"
+        fill="url(#lens-grid-{{ floor.pk }})"/>
+
+  {% comment %}
+  Cables that leave the room: a stub from the rack to the nearest wall, named after whatever
+  it reaches. Drawn before the rack-to-rack runs so a busy aisle stays the louder line, and
+  both are under the racks, so a run never hides the cabinet it arrives at.
+  {% endcomment %}
+  {% if exits %}
+    <g class="lens-floor-exits">
+      {% for exit in exits %}
+        {% if exit.url %}<a href="{{ exit.url }}">{% endif %}
+        <g class="lens-floor-exit" data-rack-id="{{ exit.rack.rack.pk }}" data-kind="{{ exit.kind }}">
+          <title>{{ exit.title }}</title>
+          <line x1="{{ exit.rack.x|floatformat:1 }}" y1="{{ exit.rack.y|floatformat:1 }}"
+                x2="{{ exit.x|floatformat:1 }}" y2="{{ exit.y|floatformat:1 }}"
+                stroke="{{ exit.colour }}" stroke-width="{{ exit.width|floatformat:1 }}"/>
+          <circle cx="{{ exit.x|floatformat:1 }}" cy="{{ exit.y|floatformat:1 }}"
+                  r="{{ exit.radius|floatformat:1 }}" fill="{{ exit.colour }}"/>
+        </g>
+        {% if exit.url %}</a>{% endif %}
+      {% endfor %}
+    </g>
+  {% endif %}
+
+  {% if runs %}
+    <g class="lens-floor-runs">
+      {% for run in runs %}
+        <line class="lens-floor-run"
+              x1="{{ run.a.x|floatformat:1 }}" y1="{{ run.a.y|floatformat:1 }}"
+              x2="{{ run.b.x|floatformat:1 }}" y2="{{ run.b.y|floatformat:1 }}"
+              stroke-width="{{ run.width|floatformat:1 }}"
+              data-rack-a="{{ run.a.rack.pk }}" data-rack-b="{{ run.b.rack.pk }}">
+          <title>{{ run.label }}</title>
+        </line>
+      {% endfor %}
+    </g>
+  {% endif %}
+
+  <g class="lens-racks">
+    {% for p in placed_racks %}
+      {% comment %}
+      Inward, not sideways. A rack on a floor leads to its own view, which is the next level
+      of the same journey; NetBox's own rack page is one click further on from there. Landing
+      on the object page instead ended the journey at its second step.
+      {% endcomment %}
+      {% if linkify %}<a href="{% url 'dcim:rack_lens' pk=p.rack.pk %}" class="lens-rack-link">{% endif %}
+      <g class="lens-rack{% if overlay and not p.has_data %} lens-rack--nodata{% endif %}{% if p.fraction != None %} lens-rack--gauged{% endif %}"
+         data-rack-id="{{ p.rack.pk }}"
+         data-name="{{ p.rack.name }}"
+         data-asset-tag="{{ p.rack.asset_tag|default:'' }}"
+         data-tags="{% for tag in p.rack.tags.all %}{{ tag.slug }} {% endfor %}"
+         {% for cell in p.field_cells %}data-{{ cell.filter.group }}="{{ cell.keys }}" {% endfor %}
+         data-lens-filterable="racks rack-tags{% for cell in p.field_cells %} {{ cell.filter.group }}{% endfor %}"
+         data-band="{{ p.band }}"
+         data-colour="{{ p.colour }}"
+         data-value="{{ p.label }}"
+         data-facts="{{ p.facts|json_facts }}"
+         data-x="{{ p.x|floatformat:1 }}" data-y="{{ p.y|floatformat:1 }}"
+         data-rotation="{{ p.rotation|floatformat:1 }}"
+         data-width="{{ p.width|floatformat:1 }}" data-depth="{{ p.depth|floatformat:1 }}"
+         transform="translate({{ p.x|floatformat:1 }} {{ p.y|floatformat:1 }}) rotate({{ p.rotation|floatformat:1 }})">
+        <title>{{ p.rack.name }}{% if p.label %} &#183; {{ p.label }}{% endif %}{% if p.estimated %} &#183; footprint estimated{% endif %}</title>
+        <rect class="lens-rack-body"
+              x="{{ p.offset_x|floatformat:1 }}" y="{{ p.offset_y|floatformat:1 }}"
+              width="{{ p.width|floatformat:1 }}" height="{{ p.depth|floatformat:1 }}"
+              {% if p.colour %}style="fill: {{ p.colour }};"{% endif %}
+              rx="4"/>
+        {% comment %}
+        A bar on the front edge, so a rotated rack still says which way it faces. Without it a
+        180-degree rotation is invisible and the plan cannot be checked against the room.
+        {% endcomment %}
+        <rect class="lens-rack-front"
+              x="{{ p.offset_x|floatformat:1 }}" y="{{ p.offset_y|floatformat:1 }}"
+              width="{{ p.width|floatformat:1 }}" height="7"/>
+
+        {% comment %}
+        The gauge. A band alone cannot tell 12% from 48%: both are "under 50%", both draw the
+        same green box, and a whole room came out one colour saying nothing. This carries the
+        magnitude the band rounds away. Only for an overlay measuring a quantity; a role or a
+        cooling capability has no "how much" to draw.
+        {% endcomment %}
+        {% if p.fraction != None %}
+          <rect class="lens-rack-gauge__track"
+                x="{{ p.gauge_x|floatformat:1 }}" y="{{ p.gauge_y|floatformat:1 }}"
+                width="{{ p.gauge_track_width|floatformat:1 }}" height="{{ p.gauge_height|floatformat:1 }}"
+                rx="2"/>
+          <rect class="lens-rack-gauge__fill"
+                x="{{ p.gauge_x|floatformat:1 }}" y="{{ p.gauge_y|floatformat:1 }}"
+                width="{{ p.gauge_width|floatformat:1 }}" height="{{ p.gauge_height|floatformat:1 }}"
+                style="fill: {{ p.colour }};" rx="2"/>
+        {% endif %}
+
+        {% comment %}
+        The size is inline, not an SVG presentation attribute: the stylesheet's rule for this
+        class would win over an attribute and every name would draw at one size again. It is
+        the same size for every rack on the floor, set from the smallest cabinet, so the plan
+        reads as one drawing rather than as a ransom note.
+        {% endcomment %}
+        <text class="lens-rack-label" x="0" y="{% if p.fraction != None %}-{{ p.label_size|floatformat:1 }}{% else %}0{% endif %}"
+              style="font-size: {{ p.label_size|floatformat:1 }}px;"
+              dominant-baseline="middle" text-anchor="middle">{{ p.display_name|default:p.rack.name }}</text>
+        {% if p.fraction != None %}
+          <text class="lens-rack-value" x="0" y="{{ p.label_size|floatformat:1 }}"
+                style="font-size: {{ p.label_size|floatformat:1 }}px;"
+                dominant-baseline="middle" text-anchor="middle">{{ p.gauge_label }}</text>
+          {% endif %}
+      </g>
+      {% if linkify %}</a>{% endif %}
+    {% endfor %}
+  </g>
+</svg>

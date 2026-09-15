@@ -3,7 +3,7 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "netbox-atlas"
+name = "netbox-spatial-lens"
 version = "0.2.0"
 description = "World map, floor plans and rack elevations for NetBox, recoloured by power, cooling and space"
 readme = "README.md"
@@ -31,14 +31,14 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/antoinekh/netbox-atlas"
-Source = "https://github.com/antoinekh/netbox-atlas"
+Homepage = "https://github.com/antoinekh/netbox-spatial-lens"
+Source = "https://github.com/antoinekh/netbox-spatial-lens"
 
 [tool.setuptools.packages.find]
-include = ["netbox_atlas*"]
+include = ["netbox_spatial_lens*"]
 
 [tool.setuptools.package-data]
-netbox_atlas = ["templates/**/*.html", "static/**/*"]
+netbox_spatial_lens = ["templates/**/*.html", "static/**/*"]
 
 [tool.ruff]
 line-length = 120

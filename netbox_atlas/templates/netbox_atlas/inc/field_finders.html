@@ -1,9 +1,0 @@
-{% comment %}
-A finder for each custom field offered as a filter, beside the Tags finder. A field with no value
-in use on the page offers nothing to tick, so it has no button.
-{% endcomment %}
-{% for filter in field_filters %}
-  {% if filter.values %}
-    {% include 'netbox_atlas/inc/finder.html' with group=filter.group key=filter.group noun='value' label=filter.label icon='filter-variant' rows=filter.values row_template='netbox_atlas/inc/finder_field.html' %}
-  {% endif %}
-{% endfor %}

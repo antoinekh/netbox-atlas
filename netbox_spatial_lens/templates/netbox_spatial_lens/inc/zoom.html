@@ -1,0 +1,15 @@
+{% comment %}
+The zoom controls over a floor plan. Read by zoom.js, which finds them inside the same
+`.lens-plan` as the plan they drive.
+{% endcomment %}
+<div class="lens-zoom btn-group-vertical btn-group-sm" role="group" aria-label="Zoom" data-lens-zoom-controls>
+  <button type="button" class="btn btn-outline-secondary" data-lens-zoom="in" title="Zoom in (Ctrl + wheel)" aria-label="Zoom in">
+    <i class="mdi mdi-plus" aria-hidden="true"></i>
+  </button>
+  <button type="button" class="btn btn-outline-secondary" data-lens-zoom="out" title="Zoom out (Ctrl + wheel)" aria-label="Zoom out">
+    <i class="mdi mdi-minus" aria-hidden="true"></i>
+  </button>
+  <button type="button" class="btn btn-outline-secondary" data-lens-zoom="fit" title="Fit the room" aria-label="Fit the room">
+    <i class="mdi mdi-fit-to-screen-outline" aria-hidden="true"></i>
+  </button>
+</div>

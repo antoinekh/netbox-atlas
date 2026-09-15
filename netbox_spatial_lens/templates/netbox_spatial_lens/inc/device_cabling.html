@@ -1,0 +1,37 @@
+{% comment %}
+One device's cabling, as seen from that device.
+
+The rack-wide list answers "what is wired in here"; this answers "what is this thing wired
+to", which is the question you have the moment you click something. Each row names the local
+port first whichever end of the cable this device is on, so the list reads outward from the
+device rather than in whatever direction the cable happened to be recorded.
+{% endcomment %}
+{% for run in runs %}
+  {% if run.local_device.pk == device.pk %}
+    <div class="lens-cable" data-cable-id="{{ run.cable.pk }}"
+         data-lens-filterable="cables" data-band="{{ run.colour }}"
+         data-termination="{{ run.termination_type }}/{{ run.termination_id }}" tabindex="0">
+      <span class="lens-cable__dot" style="background: {{ run.colour }};"></span>
+      <span class="lens-cable__local">{{ run.local_name }}</span>
+      <i class="mdi mdi-arrow-right text-muted"></i>
+      <span class="lens-cable__peer">{{ run.peer_name }}</span>
+      {% if run.peer_rack %}<span class="badge text-bg-secondary">{{ run.peer_rack }}</span>{% endif %}
+    </div>
+  {% else %}
+    {% comment %}
+    This device is the far end of the run, so the two halves are swapped to keep the local
+    port on the left. The trace still starts from the recorded end, which is the only one with
+    a termination on file here.
+    {% endcomment %}
+    <div class="lens-cable" data-cable-id="{{ run.cable.pk }}"
+         data-lens-filterable="cables" data-band="{{ run.colour }}"
+         data-termination="{{ run.termination_type }}/{{ run.termination_id }}" tabindex="0">
+      <span class="lens-cable__dot" style="background: {{ run.colour }};"></span>
+      <span class="lens-cable__local">{{ run.peer_port_name }}</span>
+      <i class="mdi mdi-arrow-left text-muted"></i>
+      <span class="lens-cable__peer">{{ run.local_device }} &middot; {{ run.local_name }}</span>
+    </div>
+  {% endif %}
+{% empty %}
+  <p class="text-muted mb-0">Nothing on this device has a cable recorded.</p>
+{% endfor %}

@@ -1,0 +1,8 @@
+{% comment %}
+The palette, as CSS custom properties.
+
+Emitted from Python rather than written into the stylesheet, so the colours the server paints
+with and the colours the stylesheet paints with cannot disagree. See netbox_spatial_lens/palette.py.
+{% endcomment %}
+{% load lens %}
+<style>:root { {% lens_palette %} }</style>

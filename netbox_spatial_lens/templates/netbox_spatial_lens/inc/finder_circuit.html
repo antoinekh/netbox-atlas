@@ -1,0 +1,16 @@
+{% comment %}
+One circuit in the circuit finder. Named by both of its ends, which is how somebody looks for it.
+{% endcomment %}
+<div class="lens-finder__row" data-lens-pick="{{ row.circuit.pk }}"
+     data-lens-name="{{ row.label }} {{ row.a.label }} {{ row.z.label }}"
+     data-lens-filterable="circuits" data-band="{{ row.colour }}" tabindex="0" role="checkbox"
+     aria-checked="false">
+  <span class="lens-finder__tick" aria-hidden="true"></span>
+  <span class="lens-cable__dot" style="background: {{ row.colour }};"></span>
+  <span class="lens-finder__name">
+    {{ row.a.label }} <i class="mdi mdi-arrow-right text-muted"></i> {{ row.z.label }}
+  </span>
+  <span class="text-muted small lens-finder__meta">{{ row.circuit.provider }}</span>
+  <a class="lens-cable__open" href="{{ row.circuit.get_absolute_url }}"
+     title="Open {{ row.circuit.cid }}"><i class="mdi mdi-open-in-new"></i></a>
+</div>

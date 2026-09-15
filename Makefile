@@ -1,14 +1,14 @@
-# netbox-atlas development stack.
+# netbox-spatial-lens development stack.
 #
 # Its own Compose project, database and ports, so it runs beside the netbox-change-control
 # stacks without disturbing them. Run every target from the repository root.
 
-COMPOSE_PROJECT := netbox-atlas
+COMPOSE_PROJECT := netbox-spatial-lens
 NETBOX_DOCKER   := ../netbox-docker
 DEMO_SQL        := ../netbox-demo-data/sql/netbox-demo-v4.7.sql
 # Start the stack with netbox-branching alongside the plugin: `make up BRANCHING=true`.
 BRANCHING       ?= false
-RUN := cd $(NETBOX_DOCKER) && NETBOX_BRANCHING=$(BRANCHING) docker compose -p $(COMPOSE_PROJECT) -f docker-compose.yml -f ../netbox-atlas/dev/docker-compose.yml
+RUN := cd $(NETBOX_DOCKER) && NETBOX_BRANCHING=$(BRANCHING) docker compose -p $(COMPOSE_PROJECT) -f docker-compose.yml -f ../netbox-spatial-lens/dev/docker-compose.yml
 EXEC := $(RUN) exec -T netbox /opt/netbox/venv/bin/python /opt/netbox/netbox/manage.py
 
 .DEFAULT_GOAL := help
@@ -32,11 +32,11 @@ reload:  ## Restart NetBox and the worker to pick up source changes
 .PHONY: migrations
 migrations:  ## Generate migrations for the plugin
 	$(RUN) exec -T --user $(shell id -u):$(shell id -g) netbox \
-	  /opt/netbox/venv/bin/python /opt/netbox/netbox/manage.py makemigrations netbox_atlas
+	  /opt/netbox/venv/bin/python /opt/netbox/netbox/manage.py makemigrations netbox_spatial_lens
 
 .PHONY: migrate
 migrate:  ## Apply the plugin migrations
-	$(EXEC) migrate netbox_atlas
+	$(EXEC) migrate netbox_spatial_lens
 
 .PHONY: demo-data
 demo-data:  ## Drop the database and load the NetBox demo data, then migrate
@@ -62,15 +62,15 @@ static:  ## Collect the plugin's CSS and JS into NetBox's static directory
 
 .PHONY: enrich
 enrich:  ## Fill in the fields the demo data leaves blank, so the views have something to draw
-	$(EXEC) atlas_enrich --all
+	$(EXEC) lens_enrich --all
 
 .PHONY: autoplace
 autoplace:  ## Create a floor per site and lay its racks out in rows
-	$(EXEC) atlas_autoplace
+	$(EXEC) lens_autoplace
 
 .PHONY: test
 test:  ## Run the plugin test suite inside the container
-	$(EXEC) test netbox_atlas --keepdb -v 2
+	$(EXEC) test netbox_spatial_lens --keepdb -v 2
 
 .PHONY: shell
 shell:  ## Django shell
@@ -86,10 +86,10 @@ check:  ## Django system checks
 
 .PHONY: lint
 lint:  ## ruff check and format --check
-	uvx ruff@0.14.5 check netbox_atlas
-	uvx ruff@0.14.5 format --check netbox_atlas
+	uvx ruff@0.14.5 check netbox_spatial_lens
+	uvx ruff@0.14.5 format --check netbox_spatial_lens
 
 .PHONY: format
 format:  ## Apply ruff fixes
-	uvx ruff@0.14.5 check --fix netbox_atlas
-	uvx ruff@0.14.5 format netbox_atlas
+	uvx ruff@0.14.5 check --fix netbox_spatial_lens
+	uvx ruff@0.14.5 format netbox_spatial_lens

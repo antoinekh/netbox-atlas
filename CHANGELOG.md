@@ -2,7 +2,10 @@
 
 ## Unreleased
 
-- **Docs:** updated the README images.
+- **Renamed:** the plugin is now NetBox Spatial Lens. Install `netbox-spatial-lens`, and use `netbox_spatial_lens` in `PLUGINS` and `PLUGINS_CONFIG`. The URLs move to `/plugins/spatial-lens/` and `/api/plugins/spatial-lens/`, the rack and site tabs to `spatial-lens/`, the permissions to `netbox_spatial_lens.*`, and the commands to `lens_enrich` and `lens_autoplace`. The migrations were rewritten under the new name, so an existing install must drop its `netbox_atlas_*` tables and migrate again.
+- **Menu:** the Spatial Lens entry in NetBox's navigation now has the layers-search icon instead of the floor plan.
+- **Site page:** every room is read in one pass, so a site with many rooms costs the same number of queries as a site with one.
+- **Docs:** retook every capture under the new name, listed every `lens_enrich` flag, and run `lens_enrich` again after `lens_autoplace` in the first start, so each new floor gets a plan.
 
 ## v0.2.0 (2026-09-15)
 

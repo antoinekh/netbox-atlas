@@ -1,6 +1,6 @@
 # Dev stack
 
-This directory holds the development NetBox for netbox-atlas: a Compose override (`docker-compose.yml`) and one config file (`configuration/plugins.py`). The stack runs on [netbox-docker](https://github.com/netbox-community/netbox-docker) under its own Compose project (`netbox-atlas`), so it does not touch another NetBox stack on the same machine.
+This directory holds the development NetBox for netbox-spatial-lens: a Compose override (`docker-compose.yml`) and one config file (`configuration/plugins.py`). The stack runs on [netbox-docker](https://github.com/netbox-community/netbox-docker) under its own Compose project (`netbox-spatial-lens`), so it does not touch another NetBox stack on the same machine.
 
 ## Prerequisites
 
@@ -10,10 +10,10 @@ This directory holds the development NetBox for netbox-atlas: a Compose override
 
 ```text
 netbox/
-├── netbox-atlas/        this repository
-├── netbox-docker/       the stack it runs on
-├── netbox-demo-data/    the demo database (sql/netbox-demo-v4.7.sql)
-└── netbox-branching/    optional, only for `make up BRANCHING=true`
+├── netbox-spatial-lens/  this repository
+├── netbox-docker/        the stack it runs on
+├── netbox-demo-data/     the demo database (sql/netbox-demo-v4.7.sql)
+└── netbox-branching/     optional, only for `make up BRANCHING=true`
 ```
 
 ```bash
@@ -40,6 +40,7 @@ make demo-data   # drop the database, load netbox-demo-data, migrate (destroys t
 make static      # collect the plugin CSS and JS
 make enrich      # fill in footprints, coordinates, cabling and circuits the demo data lacks
 make autoplace   # create a floor per site and lay the racks out in rows
+make enrich      # again, to draw a plan under each floor autoplace created
 ```
 
 Open http://localhost:8890 and sign in as `admin` / `admin`.
@@ -70,11 +71,11 @@ make shell       # Django shell
 
 ```bash
 cd ../netbox-docker
-docker compose -p netbox-atlas -f docker-compose.yml -f ../netbox-atlas/dev/docker-compose.yml exec -T netbox \
+docker compose -p netbox-spatial-lens -f docker-compose.yml -f ../netbox-spatial-lens/dev/docker-compose.yml exec -T netbox \
   /opt/netbox/venv/bin/python /opt/netbox/netbox/manage.py sqlsequencereset \
-  core dcim circuits extras ipam tenancy users virtualization vpn wireless netbox_atlas 2>/dev/null \
+  core dcim circuits extras ipam tenancy users virtualization vpn wireless netbox_spatial_lens 2>/dev/null \
   | grep -v "loaded config" > /tmp/seqreset.sql
-docker compose -p netbox-atlas -f docker-compose.yml -f ../netbox-atlas/dev/docker-compose.yml exec -T postgres \
+docker compose -p netbox-spatial-lens -f docker-compose.yml -f ../netbox-spatial-lens/dev/docker-compose.yml exec -T postgres \
   sh -c 'psql -q -U "$POSTGRES_USER" -d netbox' < /tmp/seqreset.sql
 ```
 
