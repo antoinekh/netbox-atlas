@@ -17,7 +17,7 @@ Things about NetBox and about this stack that cost time to find out. Each one is
 
 - **A plugin on `PYTHONPATH` is not collected by the entrypoint.** Run `make static` after touching anything under `static/`.
 - **A template change needs `make reload`, not `make static`.** Django caches the loaded templates.
-- **A browser with no GPU has no WebGL**, and the rack view and the world map then show their "needs WebGL" message. The DevTools browser under WSL is one. For a headless check, start Chrome with `--use-angle=swiftshader --enable-unsafe-swiftshader`.
+- **A browser with no GPU has no WebGL**, and the rack view and the world map then show their "needs WebGL" message, and the floor opens in 2D. The DevTools browser under WSL is one. For a headless check, start Chrome with `--use-angle=swiftshader --enable-unsafe-swiftshader`.
 - **The demo SQL dump inserts explicit ids without advancing the sequences**, so the first row NetBox writes afterwards collides. `manage.py sqlsequencereset` for the affected apps fixes it. The symptom is a worker container that dies on `duplicate key value violates unique constraint "core_job_pkey"`.
 
 ## Drawing

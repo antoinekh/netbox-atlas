@@ -97,7 +97,7 @@ List your plugin after `netbox_atlas` in `PLUGINS`. A name registered twice keep
 
 ## Read a floor through the REST API
 
-`GET /api/plugins/atlas/floors/<id>/layout/` returns everything one drawing of the floor needs, for a second renderer such as a 3D view. It applies the same permissions as the floor page: racks and devices the caller may not view are left out.
+`GET /api/plugins/atlas/floors/<id>/layout/` returns everything one drawing of the floor needs, for a renderer of your own. It applies the same permissions as the floor page: racks and devices the caller may not view are left out.
 
 | Query parameter | Effect |
 |---|---|

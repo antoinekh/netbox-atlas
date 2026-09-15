@@ -67,7 +67,7 @@ The cabinet in 3D, with the real front and rear images of each device type, ever
 
 ### On every level
 
-Click a port or a cable to trace it end to end, through patch panels and out to a provider, or along a power chain from socket to feed.
+In the rack, click a cable, or a row of the cabling list, to trace it end to end, through patch panels and out to a provider, or along a power chain from socket to feed. On the floor, a cable leaving the room opens the cable, or the circuit it reaches.
 
 ## Getting started
 
