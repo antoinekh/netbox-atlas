@@ -27,6 +27,7 @@ __all__ = (
     'SceneCable',
     'SceneDevice',
     'build_scene',
+    'cabinet_height',
 )
 
 # One rack unit, by the EIA-310 standard.
@@ -212,6 +213,15 @@ class RackScene:
         }
 
 
+def cabinet_height(units: float) -> float:
+    """
+    How tall a cabinet of `units` rack units stands, plinth and roof included, in millimetres.
+
+    Shared with the floor, so a rack is as tall in the room as it is when you look inside it.
+    """
+    return PLINTH_MM + units * UNIT_MM + ROOF_MM
+
+
 def _mm(value: float) -> float:
     # A tenth of a millimetre is finer than anything drawn, and keeps the page's JSON short.
     return round(value, 1)
@@ -231,7 +241,7 @@ class _Frame:
         self.width = max(width_cm * 10, self.faceplate + 2 * (MIN_MANAGER_MM + PANEL_MM))
         self.depth = max(depth_cm * 10, 2 * RAIL_SETBACK_MM + UNIT_MM)
         self.interior = rack.u_height * UNIT_MM
-        self.height = PLINTH_MM + self.interior + ROOF_MM
+        self.height = cabinet_height(rack.u_height)
 
         self.front_rail_z = self.depth / 2 - RAIL_SETBACK_MM
         available = self.depth - 2 * RAIL_SETBACK_MM

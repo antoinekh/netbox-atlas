@@ -1,5 +1,6 @@
 /*
- * Floor plan: hovering, finding a rack by name, and the rack table under the plan.
+ * Floor plan: the switch between the 3D room and the 2D plan, hovering the plan, finding a rack
+ * by name, and the rack table under both.
  *
  * Picking a legend band is not here. It is the same behaviour on all three levels and lives in
  * legend.js, driven by data attributes; this file only has to compose with it, which it does by
@@ -29,6 +30,7 @@
   const rowCount = document.querySelector('[data-atlas-rack-count]');
 
   let term = '';
+  const searchHandlers = [];
 
   function esc(value) {
     const node = document.createElement('span');
@@ -40,17 +42,18 @@
    * Finding a rack
    * ------------------------------------------------------------------- */
 
+  // A name or an asset tag: the label on the cabinet, or the sticker on its door.
+  function matches(name, assetTag) {
+    return !term || (name || '').toLowerCase().includes(term) || (assetTag || '').toLowerCase().includes(term);
+  }
+
   function applySearch() {
     svg.classList.toggle('atlas-floor--filtering', Boolean(term));
     racks.concat(rows).forEach(function (node) {
-      // A name or an asset tag: the label on the cabinet, or the sticker on its door.
-      const lit =
-        !term ||
-        (node.dataset.name || '').toLowerCase().includes(term) ||
-        (node.dataset.assetTag || '').toLowerCase().includes(term);
-      node.classList.toggle('is-searched-out', !lit);
+      node.classList.toggle('is-searched-out', !matches(node.dataset.name, node.dataset.assetTag));
     });
     if (window.atlasState) window.atlasState.set('find', term ? [term] : []);
+    searchHandlers.forEach((handler) => handler(term));
     report();
   }
 
@@ -231,5 +234,50 @@
     svg.addEventListener('pointerleave', hide);
   }
 
+  /* ----------------------------------------------------------------------
+   * 3D or 2D
+   *
+   * Both are on the page from the start, so switching costs no request and keeps everything the
+   * reader has narrowed: the legend, the finders and the find box act on the plan's racks and
+   * on the table, and the 3D room reads the same picks. The choice is kept in the URL hash with
+   * the rest, so a reload or a shared link opens the same view.
+   * ------------------------------------------------------------------- */
+
+  const views = document.querySelectorAll('[data-atlas-floor-panel]');
+  const switches = document.querySelectorAll('[data-atlas-floor-view]');
+
+  function showView(name) {
+    views.forEach((view) => (view.hidden = view.dataset.atlasFloorPanel !== name));
+    switches.forEach(function (button) {
+      const on = button.dataset.atlasFloorView === name;
+      button.classList.toggle('active', on);
+      button.setAttribute('aria-pressed', String(on));
+    });
+    if (window.atlasState) window.atlasState.set('view', name === '2d' ? ['2d'] : []);
+    if (hover) hide();
+  }
+
+  switches.forEach(function (button) {
+    button.addEventListener('click', () => showView(button.dataset.atlasFloorView));
+  });
+
+  // Read by the 3D room, which draws on a canvas the classes above cannot reach.
+  window.atlasFloor = {
+    searchTerm: () => term,
+    onSearch: (handler) => searchHandlers.push(handler),
+    matchesSearch: matches,
+    /* The 3D room could not be drawn. The plan takes its place, and the 3D button keeps the
+       reason, so the switch does not look broken. */
+    unavailable(reason) {
+      switches.forEach(function (button) {
+        if (button.dataset.atlasFloorView !== '3d') return;
+        button.disabled = true;
+        button.title = reason;
+      });
+      showView('2d');
+    },
+  };
+
+  showView(window.atlasState && window.atlasState.get('view')[0] === '2d' ? '2d' : '3d');
   applySearch();
 })();

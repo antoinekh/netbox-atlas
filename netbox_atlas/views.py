@@ -26,6 +26,7 @@ from netbox_atlas.device_overlays import get_device_overlay, get_device_overlays
 from netbox_atlas.elevation import build_elevation, rack_summary
 from netbox_atlas.field_filters import cells_for, field_filters
 from netbox_atlas.floor_cabling import build_floor_exits, build_floor_runs, cabling_legend
+from netbox_atlas.floor_scene import build_floor_scene
 from netbox_atlas.geometry import floor_viewport, metre_ticks, rack_footprint_cm
 from netbox_atlas.layout import build_layout, floor_summary, rack_rows, resolve_overlay, unplaced_racks
 from netbox_atlas.models import Floor, FloorLayer, RackPlacement
@@ -135,7 +136,14 @@ class FloorView(generic.ObjectView):
         # Drawn under the same toggle: a room whose only cabling leaves the building would
         # otherwise answer "show me the cabling" with an empty plan.
         exits = build_floor_exits(placed, instance, user=request.user) if show_runs else []
+        stage = three_stage()
         return {
+            'three_imports': stage.imports,
+            'floor3d_config': {
+                **stage.config,
+                'scene': build_floor_scene(instance, placed, runs, exits).as_json(),
+                'colours': {'highlight': HIGHLIGHT, 'highlightDark': HIGHLIGHT_DARK},
+            },
             'overlays': get_overlays(),
             'overlay': overlay,
             'stats': floor_summary(instance, placed),

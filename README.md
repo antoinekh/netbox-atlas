@@ -53,9 +53,11 @@ Every room in the site as a small plan with its own figures, on a tab of NetBox'
 
 ### The floor
 
-Racks at their real positions, coloured by **power**, **cooling**, **space** or **role**, over a scanned plan, with cable runs, zoom and a sortable rack table. Find racks by name or asset tag, narrow them by tag or custom field, and place them in the layout editor.
+The room in 3D, every rack a cabinet at its real position, rotation and height, coloured by **power**, **cooling**, **space** or **role**, with the reading rising up its doors and the cable runs arcing over the tops. Look from the top, at three quarters or from the side. Switch to **2D** for the plan over a scanned drawing, with zoom. Both views share a sortable rack table. Find racks by name or asset tag, narrow them by tag or custom field, and place them in the layout editor.
 
-![A row of eight racks over an architect drawing, coloured by how full they are, with the cables that leave the row drawn to the walls, zoom controls on the plan, and the rack table starting below it](docs/images/floor.png)
+![A row of eight cabinets standing on a metre grid, their roofs and doors coloured by how full they are, the cables leaving the row running from their tops to the walls, and the hover card of one rack](docs/images/floor-3d.png)
+
+![The same row as a 2D plan over an architect drawing, with the cables that leave the row drawn to the walls, zoom controls on the plan, and the rack table starting below it](docs/images/floor.png)
 
 ### The rack
 

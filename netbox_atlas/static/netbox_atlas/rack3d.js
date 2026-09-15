@@ -620,7 +620,7 @@ function build(stage, config) {
 
   applyHighlightColour();
   markMode();
-  apply();
+  // Starting the stage applies the names setting, which draws the first state through `apply`.
   stage.start(VIEWS, 'angle');
 }
 

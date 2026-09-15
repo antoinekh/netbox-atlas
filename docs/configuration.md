@@ -19,7 +19,7 @@ Every setting is optional. Set them under `PLUGINS_CONFIG['netbox_atlas']` in Ne
 | `map_js` | MapLibre 5.6.1 on cdnjs | Where the browser loads MapLibre from. Empty turns the world map off. |
 | `map_css` | MapLibre 5.6.1 on cdnjs | Where the browser loads MapLibre's stylesheet from. |
 | `map_glyphs` | OpenMapTiles fonts | Font server for the site names on the map. `None` draws the map without names. |
-| `three_base` | Three.js 0.186.0 on jsDelivr | Where the browser loads Three.js from for the rack view: a copy of the `three` npm package, with `build/three.module.js` and `examples/jsm/` under it. Empty turns the rack drawing off. |
+| `three_base` | Three.js 0.186.0 on jsDelivr | Where the browser loads Three.js from for the rack view and the 3D floor: a copy of the `three` npm package, with `build/three.module.js` and `examples/jsm/` under it. Empty turns both 3D drawings off; the floor then opens in 2D. |
 
 A name in a URL that no colouring answers to falls back to the default, and then to the first colouring registered, so an old link still opens.
 
@@ -42,7 +42,7 @@ PLUGINS_CONFIG = {
 
 ## A site with no internet access
 
-The world map and the rack view need a browser with WebGL, and a copy of MapLibre and of Three.js it can reach. The tiles and the fonts are optional. Host the libraries yourself, and point the settings at your own servers, or turn the optional parts off:
+The world map, the rack view and the 3D floor need a browser with WebGL, and a copy of MapLibre and of Three.js it can reach. The tiles and the fonts are optional. Host the libraries yourself, and point the settings at your own servers, or turn the optional parts off:
 
 ```python
 PLUGINS_CONFIG = {
@@ -60,6 +60,6 @@ PLUGINS_CONFIG = {
 }
 ```
 
-The floor plans need nothing from the network.
+The 2D floor plan needs nothing from the network. When the 3D floor cannot be drawn, the floor opens in 2D and the 3D button says why.
 
 The world map sends the page's origin, and nothing more, as the `Referer` of each tile request. OpenStreetMap's tile servers refuse a tile requested without one, and NetBox's own `Referrer-Policy` would otherwise leave it out.

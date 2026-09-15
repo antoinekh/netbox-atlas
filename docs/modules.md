@@ -8,6 +8,7 @@ What each part of the plugin holds. The Python modules are under `netbox_atlas/`
 | `signals` | Removing a background image from storage when no layer uses it any more |
 | `layout` / `world` | Turning those into a drawing |
 | `elevation` / `scene` | A rack in rack units, then the same rack in millimetres for the 3D drawing, with every cable routed through the cable managers |
+| `floor_scene` | A floor in millimetres for the 3D drawing: cabinets, the arcs between racks and the cabling to the walls |
 | `cabling` / `ports` / `power` / `floor_cabling` | Resolved in bulk, never per object |
 | `tracing` | Following a path end to end, and a power chain past the PDU |
 | `overlays` / `device_overlays` / `site_overlays` | The colouring registries and their built-ins |
@@ -19,7 +20,8 @@ What each part of the plugin holds. The Python modules are under `netbox_atlas/`
 | `finder.js` | Searching and ticking a long list, shared by the map and the rack |
 | `state.js` | What a drawing is narrowed to, kept in the URL hash |
 | `zoom.js` | Zooming into a floor plan and moving round it, on the floor page and in the editor |
-| `floor.js` | The floor: hovering, selection, tracing, the rack table |
+| `floor.js` | The floor: the 3D and 2D switch, the plan's hover card, the find box and the rack table |
+| `floor3d.js` | The floor on a 3D stage: cabinets, cabling, filters and the hover card |
 | `stage3d.js` | What every 3D drawing shares: loading Three.js, light and shadow, labels, the hover card and clicks, the camera and its views, and the message shown when it cannot be drawn |
 | `rack3d.js` | The rack on a 3D stage: device images, cables and selection |
 | `rack_panel.js` | The column beside the rack: port allocation, cabling, reservations and the traced path |

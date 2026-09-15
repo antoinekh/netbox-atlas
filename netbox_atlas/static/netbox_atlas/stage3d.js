@@ -273,8 +273,10 @@ function createStage(element, lib) {
   let views = {};
 
   /* The box everything drawn fits in, in scene units. Places the light, the shadow and the
-     ground around it, and is what every view frames. */
-  function setBounds(min, max) {
+     ground around it, and is what every view frames. `sun` is the direction the light comes
+     from: a tall cabinet reads best lit from the side, a room from nearly overhead, where its
+     shadows stay inside it. */
+  function setBounds(min, max, { sun = [0.9, 1.4, 1.1] } = {}) {
     corners.length = 0;
     [min[0], max[0]].forEach(function (x) {
       [min[1], max[1]].forEach(function (y) {
@@ -284,7 +286,7 @@ function createStage(element, lib) {
     boundsCentre.set((min[0] + max[0]) / 2, (min[1] + max[1]) / 2, (min[2] + max[2]) / 2);
     const size = Math.max(max[0] - min[0], max[1] - min[1], max[2] - min[2]);
 
-    key.position.set(boundsCentre.x + size * 0.9, max[1] + size * 1.4, boundsCentre.z + size * 1.1);
+    key.position.set(boundsCentre.x + size * sun[0], max[1] + size * sun[1], boundsCentre.z + size * sun[2]);
     key.target.position.set(boundsCentre.x, 0, boundsCentre.z);
     const reach = size * 1.2;
     Object.assign(key.shadow.camera, { left: -reach, right: reach, top: reach, bottom: -reach, near: 10, far: size * 6 });
@@ -295,6 +297,12 @@ function createStage(element, lib) {
 
     controls.minDistance = size * 0.15;
     controls.maxDistance = size * 8;
+    // The near plane scales with what is drawn. Fixed at a few millimetres, a room ten metres
+    // across has too little depth precision left to tell a door from the cabinet behind it, and
+    // the two flicker through each other in stripes.
+    camera.near = size * 0.005;
+    camera.far = size * 40;
+    camera.updateProjectionMatrix();
     controls.target.copy(boundsCentre);
   }
 
@@ -377,7 +385,9 @@ function createStage(element, lib) {
     const box = renderer.domElement.getBoundingClientRect();
     pointer.set(((clientX - box.left) / box.width) * 2 - 1, -((clientY - box.top) / box.height) * 2 + 1);
     raycaster.setFromCamera(pointer, camera);
-    return picking.choose(raycaster.intersectObjects(picking.objects(), false));
+    // A raycaster tests hidden meshes too, and something hidden must not take the pointer.
+    const hits = raycaster.intersectObjects(picking.objects(), false).filter((hit) => hit.object.visible);
+    return picking.choose(hits);
   }
 
   function showTip(target, clientX, clientY) {
@@ -448,7 +458,7 @@ function createStage(element, lib) {
    * The buttons on the stage
    * ------------------------------------------------------------------- */
 
-  let showNames = Boolean(window.atlasState && window.atlasState.get('names')[0]);
+  let showNames = false;
   const namesHandlers = [];
 
   function markNames() {
@@ -464,7 +474,7 @@ function createStage(element, lib) {
 
     if (event.target.closest('[data-atlas-labels]')) {
       showNames = !showNames;
-      if (window.atlasState) window.atlasState.set('names', showNames ? ['on'] : []);
+      if (window.atlasState) window.atlasState.set('names', [showNames ? 'on' : 'off']);
       markNames();
       return namesHandlers.forEach((handler) => handler(showNames));
     }
@@ -535,11 +545,15 @@ function createStage(element, lib) {
       picking = options;
     },
 
-    /* Uncover the stage, framed on `view`: `views` names each preset's direction. */
-    start(viewDirections, view) {
+    /* Uncover the stage, framed on `view`: `views` names each preset's direction. Names are
+       shown from the start when `names` is true, unless the URL says otherwise. */
+    start(viewDirections, view, { names = false } = {}) {
       views = Object.fromEntries(Object.entries(viewDirections).map(([name, v]) => [name, new THREE.Vector3(...v)]));
       firstView = view;
+      const kept = window.atlasState ? window.atlasState.get('names')[0] : undefined;
+      showNames = kept ? kept === 'on' : names;
       markNames();
+      namesHandlers.forEach((handler) => handler(showNames));
       controlsBar.hidden = false;
       new ResizeObserver(resize).observe(host);
       resize();

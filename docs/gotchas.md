@@ -25,4 +25,6 @@ Things about NetBox and about this stack that cost time to find out. Each one is
 - **Overlapping strokes defeat dimming.** Seventeen lines at 14% opacity drawn on the same path composite back to about 94%: the band reads as fully lit while being unclickable. Anything that can be drawn more than once on the same path has to be separated first, which is what the lanes in `scene.py` do for the cables in a rack.
 - **In Three.js, changing a material's `transparent` needs `material.needsUpdate = true`.** Changing its `opacity` alone does not. Without it, a cable faded by a filter stays solid.
 - **Three.js 0.186 has no `PCFSoftShadowMap`.** It warns and falls back to `PCFShadowMap`.
+- **A fixed camera near plane breaks at room scale.** With a near plane of a few millimetres, a room ten metres across has too little depth precision to tell a door panel from the cabinet face behind it, and the two show through each other in stripes. `stage3d.js` sets the near plane from the size of what is drawn.
+- **A raycaster also hits hidden meshes.** Filter the hits on `object.visible`, or hidden cabling still takes the pointer.
 - **`getBoundingClientRect().top` does not tell you whether two SVG elements overlap.** Diagonal paths that share a start point share a bounding-box top. Compare the `d` attribute, or sample pixels.
