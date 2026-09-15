@@ -24,6 +24,19 @@ const CLICK_TOLERANCE = 5;
 // not draw it, so a drawing can add fat invisible meshes to make thin things easy to hit.
 export const PICK_LAYER = 1;
 
+/* The finish of a cabinet, shared by every drawing of one so a rack looks the same in the room as
+ * it does when you look inside it. A mid graphite, and only half metallic: the environment the
+ * stage lights with is dim, and a fully metallic surface reflects that dimness back as black
+ * whatever its colour. */
+export const CABINET_FINISH = {
+  frame: { color: 0x6b7480, metalness: 0.35, roughness: 0.5 },
+  rail: { color: 0x8a939f, metalness: 0.45, roughness: 0.4 },
+  // A device's chassis, a shade darker than the frame it is bolted into.
+  chassis: { color: 0x59616c, metalness: 0.4, roughness: 0.45 },
+  // The part of a door a reading has not filled.
+  door: { color: 0x4b535e, metalness: 0.2, roughness: 0.5 },
+};
+
 /* A failure the reader can act on, shown on the stage as it is worded. */
 export class ReaderError extends Error {}
 

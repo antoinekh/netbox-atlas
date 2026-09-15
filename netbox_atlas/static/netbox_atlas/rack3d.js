@@ -8,7 +8,7 @@
  * beside the drawing can follow it.
  */
 
-import { PICK_LAYER, isDark, openStage, textOn } from 'atlas/stage3d';
+import { CABINET_FINISH, PICK_LAYER, isDark, openStage, textOn } from 'atlas/stage3d';
 
 const panel = window.atlasRackPanel;
 const element = document.querySelector('[data-atlas-3d]');
@@ -45,8 +45,8 @@ function build(stage, config) {
    * The cabinet
    * ------------------------------------------------------------------- */
 
-  const frameMaterial = new THREE.MeshStandardMaterial({ color: 0x3b424c, metalness: 0.7, roughness: 0.34 });
-  const railMaterial = new THREE.MeshStandardMaterial({ color: 0x5b6472, metalness: 0.8, roughness: 0.32 });
+  const frameMaterial = new THREE.MeshStandardMaterial(CABINET_FINISH.frame);
+  const railMaterial = new THREE.MeshStandardMaterial(CABINET_FINISH.rail);
   const glassMaterial = new THREE.MeshStandardMaterial({
     color: 0xa9bccf,
     metalness: 0.1,
@@ -204,15 +204,13 @@ function build(stage, config) {
     return stage.finishTexture(new THREE.CanvasTexture(canvas));
   }
 
-  const bodyColour = new THREE.Color(0x454c57);
-
   function deviceView(device) {
     const [x, y, z, w, h, d] = device.box;
     const faces = {
       front: new THREE.MeshStandardMaterial({ roughness: 0.55, metalness: 0.15 }),
       rear: new THREE.MeshStandardMaterial({ roughness: 0.55, metalness: 0.15 }),
     };
-    const body = new THREE.MeshStandardMaterial({ color: bodyColour, metalness: 0.6, roughness: 0.42 });
+    const body = new THREE.MeshStandardMaterial(CABINET_FINISH.chassis);
     // BoxGeometry's groups run +x, -x, +y, -y, +z, -z. A device mounted on the rear shows its
     // own front at the back of the cabinet.
     const plusZ = device.facing === 'rear' ? faces.rear : faces.front;

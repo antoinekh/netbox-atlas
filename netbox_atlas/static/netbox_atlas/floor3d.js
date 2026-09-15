@@ -11,16 +11,13 @@
  * `floor.js` owns the switch between the two views, and is told here when 3D cannot be drawn.
  */
 
-import { PICK_LAYER, isDark, openStage } from 'atlas/stage3d';
+import { CABINET_FINISH, PICK_LAYER, isDark, openStage } from 'atlas/stage3d';
 
 const element = document.querySelector('[data-atlas-3d]');
 const configNode = document.getElementById('atlas-floor3d-config');
 
 // Opacity of a rack left out by a filter.
 const FILTERED_OPACITY = 0.12;
-// The door of a cabinet whose colouring measures a quantity: its empty part, over which the
-// colour rises to the reading.
-const DOOR_EMPTY = 0x2b3038;
 // How far a door stands off its cabinet, in millimetres: far enough to stay in front of it at
 // room scale.
 const DOOR_OFFSET = 6;
@@ -115,8 +112,6 @@ function build(stage, config) {
    * Racks
    * ------------------------------------------------------------------- */
 
-  const frameColour = new THREE.Color(0x3b424c);
-
   function rackView(rack) {
     const group = new THREE.Group();
     group.position.set(rack.x, 0, rack.z);
@@ -126,9 +121,9 @@ function build(stage, config) {
     const { width: w, depth: d, height: h } = rack;
     const colour = new THREE.Color(rack.colour || '#8a8f98');
 
-    // The cabinet, dark like the rack view's, with its roof in the colouring: from above, the
+    // The cabinet, in the rack view's finish, with its roof in the colouring: from above, the
     // room reads like the plan.
-    const body = new THREE.MeshStandardMaterial({ color: frameColour, metalness: 0.55, roughness: 0.45 });
+    const body = new THREE.MeshStandardMaterial(CABINET_FINISH.frame);
     const roof = new THREE.MeshStandardMaterial({ color: colour, metalness: 0.1, roughness: 0.6 });
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), [body, body, roof, body, body, body]);
     mesh.position.y = h / 2;
@@ -142,7 +137,7 @@ function build(stage, config) {
     // reading is there whichever side of the rack you look at; any other colouring fills it whole.
     const doorHeight = h - 140;
     const doorWidth = w - 40;
-    const empty = new THREE.MeshStandardMaterial({ color: DOOR_EMPTY, metalness: 0.2, roughness: 0.5 });
+    const empty = new THREE.MeshStandardMaterial(CABINET_FINISH.door);
     const filled = new THREE.MeshStandardMaterial({ color: colour, metalness: 0.1, roughness: 0.55 });
     const materials = [body, roof, empty, filled];
     const fraction = rack.fraction === null ? 1 : Math.max(0, Math.min(1, rack.fraction));
