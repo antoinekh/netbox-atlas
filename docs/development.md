@@ -8,9 +8,9 @@ It runs on [netbox-docker](https://github.com/netbox-community/netbox-docker), i
 
 ```text
 netbox/
-├── netbox-atlas/        this repository
-├── netbox-docker/       the stack it runs on
-└── netbox-demo-data/    the database it is tested against
+├── netbox-spatial-lens/  this repository
+├── netbox-docker/        the stack it runs on
+└── netbox-demo-data/     the database it is tested against
 ```
 
 ```bash
@@ -32,7 +32,7 @@ Two of these are easy to forget. **A plugin on `PYTHONPATH` is not collected by 
 
 netbox-demo-data is an inventory, not a floor plan. It records no rack footprints, no coordinates, no cooling, and most of its racks are empty, so the views have almost nothing to draw. Two commands close that gap.
 
-### `atlas_enrich`
+### `lens_enrich`
 
 Fills in the fields this plugin draws with, and **never overwrites a value that is already there**. Run with no flags it does everything; each flag does one part.
 
@@ -46,7 +46,7 @@ Fills in the fields this plugin draws with, and **never overwrites a value that 
 
 It also puts a schematic architect drawing under each floor, so the background-layer feature has something to show.
 
-### `atlas_autoplace`
+### `lens_autoplace`
 
 Creates a floor per site and lays its unplaced racks out in rows.
 
@@ -57,14 +57,14 @@ It never moves a rack somebody has already placed, unless you pass `--replace`.
 
 ```bash
 # Every site with racks, one floor each.
-manage.py atlas_autoplace
+manage.py lens_autoplace
 
 # One site, in a room of a stated size.
-manage.py atlas_autoplace ncsu-065 --width 40 --depth 25
+manage.py lens_autoplace ncsu-065 --width 40 --depth 25
 
 # One floor per location rather than one per site, which is the shape a site
 # with named rows or halls actually has.
-manage.py atlas_autoplace ncsu-065 --per-location
+manage.py lens_autoplace ncsu-065 --per-location
 ```
 
 In the demo data, `MDF` is the site worth looking at: 26 racks, of which 24 are in three rows of eight. With `--per-location` it becomes four rooms, which is what the site page is for.

@@ -1,4 +1,4 @@
-# netbox-atlas, plus netbox-branching when the stack is started with it.
+# netbox-spatial-lens, plus netbox-branching when the stack is started with it.
 #
 # Branching is off by default: the plugin does not depend on it, and leaving it out keeps the
 # stack close to a plain NetBox. `make up BRANCHING=true` turns it on, which is how the plugin
@@ -6,10 +6,10 @@
 import os
 import sys
 
-PLUGINS = ['netbox_atlas']
+PLUGINS = ['netbox_spatial_lens']
 
 PLUGINS_CONFIG = {
-    'netbox_atlas': {
+    'netbox_spatial_lens': {
         # The demo's rack and device custom field, offered as a filter like tags.
         'filter_custom_fields': ['compliancy'],
     },

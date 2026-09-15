@@ -1,4 +1,4 @@
-# Development stack for netbox-atlas on NetBox 4.7.
+# Development stack for netbox-spatial-lens on NetBox 4.7.
 #
 # Its own Compose project name, so it has its own database and volumes and can run beside the
 # netbox-change-control stacks without touching them. Ports are shifted again for the same
@@ -12,7 +12,7 @@
 x-netbox: &netbox
   image: netboxcommunity/netbox:v4.7.0
   environment:
-    PYTHONPATH: /opt/netbox/plugins/netbox-atlas:/opt/netbox/plugins/netbox-branching
+    PYTHONPATH: /opt/netbox/plugins/netbox-spatial-lens:/opt/netbox/plugins/netbox-branching
     # Read by dev/configuration/plugins.py. `make up BRANCHING=true` sets it.
     NETBOX_BRANCHING: ${NETBOX_BRANCHING:-false}
     DEVELOPER: "true"
@@ -24,8 +24,8 @@ x-netbox: &netbox
     # Only our own config file, mounted over netbox-docker's config directory rather than
     # replacing it. Replacing it meant vendoring copies of configuration.py, extra.py and
     # logging.py that we never edited and that would drift from netbox-docker's own.
-    - ../netbox-atlas/dev/configuration/plugins.py:/etc/netbox/config/plugins.py:z,ro
-    - ../netbox-atlas:/opt/netbox/plugins/netbox-atlas:z
+    - ../netbox-spatial-lens/dev/configuration/plugins.py:/etc/netbox/config/plugins.py:z,ro
+    - ../netbox-spatial-lens:/opt/netbox/plugins/netbox-spatial-lens:z
     # A sibling checkout, mounted read-only and only imported when NETBOX_BRANCHING is true.
     - ../netbox-branching:/opt/netbox/plugins/netbox-branching:z,ro
 

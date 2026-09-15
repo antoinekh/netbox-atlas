@@ -1,9 +1,9 @@
 <div align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/logo-dark.svg" />
-    <img src="docs/images/logo.svg" width="460" alt="netbox atlas" />
+    <img src="docs/images/logo.svg" width="460" alt="netbox spatial lens" />
   </picture>
-  <p><strong>An atlas of your estate: world, floor and rack, drawn from NetBox and recoloured by what you need to see</strong></p>
+  <p><strong>Your estate through one lens: world, floor and rack, drawn from NetBox and recoloured by what you need to see</strong></p>
   <p>world &bull; site &bull; floor &bull; rack</p>
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License" />
   <img src="https://img.shields.io/badge/NetBox-%3E%3D%204.7.0%2C%20%3C%204.8-00857d" alt="NetBox compatibility" />
@@ -18,7 +18,7 @@
   </p>
 </div>
 
-An atlas is a bound set of maps of one place, each at the scale its question needs: the continent, the country, the street. That is what this is for a network. The world map, the floor plan and the rack in 3D are three scales of the same estate, one click apart, and every one of them recolours on demand by whatever you came to find out.
+A lens does two things to what you point it at: it brings one place into focus, and it filters what you see there. That is what this is for a network. The world map, the floor plan and the rack in 3D are the same estate at three focal lengths, one click apart, and every one of them recolours on demand by whatever you came to find out.
 
 A NetBox plugin. NetBox knows a rack's height, footprint, power feeds and cooling capability. It does not know where the rack stands in the room, and it will not colour a room by any of those values. This draws the room and colours it.
 
@@ -71,11 +71,11 @@ In the rack, click a cable, or a row of the cabling list, to trace it end to end
 
 ## Getting started
 
-Install it like any NetBox plugin: `pip install netbox-atlas`, add `netbox_atlas` to `PLUGINS`, and migrate. It also works inside [netbox-branching](https://github.com/netboxlabs/netbox-branching) branches.
+Install it like any NetBox plugin: `pip install netbox-spatial-lens`, add `netbox_spatial_lens` to `PLUGINS`, and migrate. It also works inside [netbox-branching](https://github.com/netboxlabs/netbox-branching) branches.
 
 ### Your first floor
 
-1. **Draw the room:** **Atlas > Floors > Add**. Give its width and depth, and bind it to a **site** (one room) or a **location** (several rooms).
+1. **Draw the room:** **Spatial Lens > Floors > Add**. Give its width and depth, and bind it to a **site** (one room) or a **location** (several rooms).
 2. **Place the racks:** open the floor, choose **Edit layout**, then drag each rack from the list onto the plan and rotate it. Rack sizes come from NetBox.
 3. **Look at it:** colour by power, cooling, space or role, and click a rack to open it.
 

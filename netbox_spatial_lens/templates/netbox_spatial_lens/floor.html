@@ -1,0 +1,284 @@
+{% extends 'generic/object.html' %}
+{% load static %}
+{% load lens %}
+{% load helpers %}
+
+{% block head %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% lens_static 'netbox_spatial_lens/lens.css' %}">
+  {% include 'netbox_spatial_lens/inc/palette.html' %}
+  {% comment %}
+  In the head, before any module script: a browser resolves bare specifiers such as `three`
+  only through an import map it has read before the first module loads.
+  {% endcomment %}
+  {% lens_import_map three_imports %}
+{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col col-md-9">
+    <div class="card lens-card--drawing">
+      <div class="card-body">
+
+        <div class="lens-toolbar">
+          {% include 'netbox_spatial_lens/inc/levels.html' with site=object.effective_site floor=object %}
+          {% if placed_racks %}
+            <div class="btn-group btn-group-sm" role="group" aria-label="Show the floor">
+              <button type="button" class="btn btn-outline-primary active" data-lens-floor-view="3d" aria-pressed="true">3D</button>
+              <button type="button" class="btn btn-outline-primary" data-lens-floor-view="2d" aria-pressed="false">2D</button>
+            </div>
+          {% endif %}
+          <div class="btn-group btn-group-sm" role="group" aria-label="Colour the racks by">
+            {% for o in overlays %}
+              <a href="?overlay={{ o.name }}{% if show_runs %}&amp;runs=1{% endif %}"
+                 class="btn btn-outline-primary{% if overlay and o.name == overlay.name %} active{% endif %}"
+                 {% if overlay and o.name == overlay.name %}aria-current="true"{% endif %}
+                 title="{{ o.description }}">{{ o.label }}</a>
+            {% endfor %}
+          </div>
+          {% comment %}
+          A toggle rather than an overlay: the runs are drawn over whatever colouring is
+          already chosen, and asking somebody to give up the power view to see the cabling
+          would make the two facts impossible to read together.
+          {% endcomment %}
+          <a href="?overlay={{ overlay.name|default:'' }}{% if not show_runs %}&amp;runs=1{% endif %}"
+             class="btn btn-sm btn-outline-primary{% if show_runs %} active{% endif %}"
+             title="Draw a line between every pair of racks joined by a cable, weighted by how many.">
+            <i class="mdi mdi-transit-connection-variant"></i> Cable runs
+          </a>
+          <span class="lens-toolbar__spacer"></span>
+          {% if placed_racks %}
+            {% comment %}
+            Finding one cabinet in a room of fifty is the commonest thing anybody does here and
+            there was no way to do it but to read every label. Filters as you type, and dims
+            the rest rather than hiding it, so a rack keeps its place in the room.
+            {% endcomment %}
+            {% if rack_tags %}
+              {% include 'netbox_spatial_lens/inc/finder.html' with group='rack-tags' key='tags' noun='tag' label='Tags' icon='tag-outline' rows=rack_tags row_template='netbox_spatial_lens/inc/finder_tag.html' %}
+            {% endif %}
+            {% include 'netbox_spatial_lens/inc/field_finders.html' %}
+            <label class="lens-find">
+              <i class="mdi mdi-magnify" aria-hidden="true"></i>
+              <input type="search" data-lens-find placeholder="Name or asset tag" aria-label="Find a rack or asset tag"
+                     autocomplete="off" spellcheck="false">
+            </label>
+            {% include 'netbox_spatial_lens/inc/help.html' with text='Click a rack to go inside it. Hover a rack to see its detail. In 3D, drag to turn the room, right-drag to move it, scroll to zoom. In 2D, Ctrl + wheel zooms and dragging moves the plan when zoomed. The find box matches a name or an asset tag; Tags narrows to the racks with any tag you tick. Click legend bands to filter; you can pick several. Escape clears.' %}
+          {% endif %}
+        </div>
+
+        {% if placed_racks %}
+          {% include 'netbox_spatial_lens/inc/stats.html' with stats=stats %}
+
+          {% comment %}
+          The room in 3D, drawn by floor3d.js from the scene at the foot of the page. The message
+          covers the stage until the room is drawn; when it cannot be, the plan below takes its
+          place and the 3D button says why.
+          {% endcomment %}
+          <div class="lens-stage lens-3d" data-lens-3d data-lens-floor-panel="3d">
+            <div class="lens-3d__canvas" data-lens-3d-canvas></div>
+            <div class="lens-3d__controls" data-lens-3d-controls hidden>
+              <div class="btn-group btn-group-sm" role="group" aria-label="Look at the room from">
+                <button type="button" class="btn btn-outline-primary" data-lens-view="top">Top</button>
+                <button type="button" class="btn btn-outline-primary" data-lens-view="angle">3/4</button>
+                <button type="button" class="btn btn-outline-primary" data-lens-view="side">Side</button>
+              </div>
+              <div class="btn-group btn-group-sm" role="group" aria-label="Show each rack as">
+                <button type="button" class="btn btn-outline-primary active" data-lens-rack-display="cabinets" aria-pressed="true">Cabinets</button>
+                <button type="button" class="btn btn-outline-primary" data-lens-rack-display="devices" aria-pressed="false">Devices</button>
+              </div>
+              <div class="btn-group btn-group-sm" role="group" aria-label="Display">
+                <button type="button" class="btn btn-outline-primary" data-lens-labels aria-pressed="false" title="Names">
+                  <i class="mdi mdi-label-outline" aria-hidden="true"></i><span class="visually-hidden">Names</span>
+                </button>
+                <button type="button" class="btn btn-outline-primary" data-lens-fullscreen title="Full screen">
+                  <i class="mdi mdi-fullscreen" aria-hidden="true"></i><span class="visually-hidden">Full screen</span>
+                </button>
+              </div>
+            </div>
+            <div class="lens-3d__tip" data-lens-3d-tip hidden></div>
+            <div class="lens-map-message" data-lens-3d-message role="status">Loading the room&hellip;</div>
+          </div>
+
+          <div class="lens-plan" data-lens-plan data-lens-floor-panel="2d" hidden>
+            {% include 'netbox_spatial_lens/inc/zoom.html' %}
+            {% include 'netbox_spatial_lens/inc/floor_svg.html' with floor=object linkify=True zoomable=True %}
+            {% comment %}
+            The hover card, filled in from the rack's own data attributes. One element reused
+            for every rack rather than one per rack: a room of fifty would otherwise carry
+            fifty hidden cards, and only ever show one.
+            {% endcomment %}
+            <div class="lens-hover lens-card" data-lens-hover hidden aria-hidden="true"></div>
+          </div>
+        {% else %}
+          <div class="lens-empty">
+            <p class="mb-2">No racks are placed on this floor yet.</p>
+            {% if perms.netbox_spatial_lens.change_rackplacement %}
+              <a href="{% url 'plugins:netbox_spatial_lens:floor_layout' pk=object.pk %}" class="btn btn-primary btn-sm">
+                <i class="mdi mdi-cursor-move"></i> Place racks
+              </a>
+            {% endif %}
+          </div>
+        {% endif %}
+
+      </div>
+    </div>
+
+    {% if rack_rows %}
+      {% comment %}
+      The racks as a table: every figure the plan carries, one row each, sorted by clicking a
+      heading. The rows carry the same band and name as the racks on the plan, so the legend and
+      the find box narrow the table and the plan together.
+      {% endcomment %}
+      <div class="card">
+        <h2 class="card-header">
+          <span>Racks</span>
+          <span class="badge text-bg-secondary" data-lens-rack-count>{{ rack_rows|length }}</span>
+        </h2>
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0 lens-rack-table" data-lens-rack-table>
+            <thead>
+              <tr>
+                <th scope="col" data-sort="text" aria-sort="ascending"><button type="button" class="lens-sort">Rack</button></th>
+                <th scope="col" data-sort="text" aria-sort="none"><button type="button" class="lens-sort">Role</button></th>
+                <th scope="col" data-sort="text" aria-sort="none"><button type="button" class="lens-sort">Location</button></th>
+                <th scope="col" class="lens-num" data-sort="number" aria-sort="none"><button type="button" class="lens-sort">Height</button></th>
+                <th scope="col" class="lens-num" data-sort="number" aria-sort="none"><button type="button" class="lens-sort">Devices</button></th>
+                <th scope="col" class="lens-num" data-sort="number" aria-sort="none"><button type="button" class="lens-sort">Space</button></th>
+                <th scope="col" class="lens-num" data-sort="number" aria-sort="none"><button type="button" class="lens-sort">Power</button></th>
+                <th scope="col" data-sort="text" aria-sort="none"><button type="button" class="lens-sort">Cooling</button></th>
+                <th scope="col" data-sort="text" aria-sort="none"><button type="button" class="lens-sort">Asset tag</button></th>
+                <th scope="col">Tags</th>
+                {% for filter in field_filters %}
+                  <th scope="col" data-sort="text" aria-sort="none"><button type="button" class="lens-sort">{{ filter.label }}</button></th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in rack_rows %}
+                <tr data-lens-filterable="racks rack-tags{% for cell in row.placed.field_cells %} {{ cell.filter.group }}{% endfor %}" data-band="{{ row.placed.band }}" data-name="{{ row.rack.name }}"
+                    data-asset-tag="{{ row.rack.asset_tag|default:'' }}"
+                    data-tags="{% for tag in row.rack.tags.all %}{{ tag.slug }} {% endfor %}"
+                    {% for cell in row.placed.field_cells %}data-{{ cell.filter.group }}="{{ cell.keys }}" {% endfor %}>
+                  <td data-sort-value="{{ row.rack.name }}">
+                    <span class="lens-swatch align-middle me-1" style="background: {{ row.placed.colour }};" title="{{ row.placed.label }}"></span>
+                    <a href="{% url 'dcim:rack_lens' pk=row.rack.pk %}">{{ row.rack.name }}</a>
+                  </td>
+                  <td data-sort-value="{{ row.rack.role.name|default:'' }}">{{ row.rack.role|placeholder }}</td>
+                  <td data-sort-value="{{ row.rack.location.name|default:'' }}">{{ row.rack.location|placeholder }}</td>
+                  <td class="lens-num" data-sort-value="{{ row.rack.u_height }}">{{ row.rack.u_height }}U</td>
+                  <td class="lens-num" data-sort-value="{{ row.placed.device_count }}">{{ row.placed.device_count }}</td>
+                  {% if row.space_percent is not None %}
+                    <td class="lens-num" data-sort-value="{{ row.space_percent|stringformat:'.1f' }}">
+                      {{ row.space_percent|floatformat:0 }}% <span class="text-muted">&middot; {{ row.free_units|floatformat }}U free</span>
+                    </td>
+                  {% else %}
+                    <td class="lens-num" data-sort-value="">{{ ''|placeholder }}</td>
+                  {% endif %}
+                  {% if row.power_percent is not None %}
+                    <td class="lens-num" data-sort-value="{{ row.power_percent|stringformat:'.1f' }}">
+                      {{ row.power_percent|floatformat:0 }}% <span class="text-muted">of {{ row.power_capacity_kw|floatformat }} kW</span>
+                    </td>
+                  {% else %}
+                    <td class="lens-num" data-sort-value="">{{ ''|placeholder }}</td>
+                  {% endif %}
+                  <td data-sort-value="{{ row.rack.cooling_capability|default:'' }}">
+                    {% if row.rack.cooling_capability %}
+                      {{ row.rack.get_cooling_capability_display }}{% if row.rack.cooling_capacity %}, {{ row.rack.cooling_capacity|floatformat }} kW{% endif %}
+                    {% else %}
+                      {{ ''|placeholder }}
+                    {% endif %}
+                  </td>
+                  <td data-sort-value="{{ row.rack.asset_tag|default:'' }}">{{ row.rack.asset_tag|placeholder }}</td>
+                  <td>{% for tag in row.rack.tags.all %}{% tag tag %} {% empty %}{{ ''|placeholder }}{% endfor %}</td>
+                  {% for cell in row.placed.field_cells %}
+                    <td data-sort-value="{{ cell.sort_value }}">
+                      {% for value in cell.values %}<span class="badge" style="color: {{ value.colour|fgcolor }}; background-color: {{ value.colour }}">{{ value.label }}</span> {% empty %}{{ ''|placeholder }}{% endfor %}
+                    </td>
+                  {% endfor %}
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="col col-md-3">
+    {% if overlay %}
+      <div class="card">
+        <h2 class="card-header">{{ overlay.label }}</h2>
+        <div class="card-body">
+          {% comment %}
+          The counts are in the legend rather than in a sentence below it, so the number sits
+          beside the colour it belongs to. A whole floor of grey must read as "nobody has
+          recorded this", never as a clean bill of health.
+          {% endcomment %}
+          {% include 'netbox_spatial_lens/inc/legend.html' with legend=legend filter='racks' %}
+        </div>
+      </div>
+    {% endif %}
+
+    {% comment %}
+    The cabling has colours of its own, and until this card existed nothing on the page said
+    what they meant: a red stub and a blue line were two colours the reader had to guess at.
+    {% endcomment %}
+    {% if show_runs %}
+      <div class="card">
+        <h2 class="card-header">
+          <span>Cabling</span>
+          <span class="lens-scope">{{ runs|length }} route{{ runs|pluralize }}</span>
+        </h2>
+        <div class="card-body">
+          {% include 'netbox_spatial_lens/inc/legend.html' with legend=cabling_legend %}
+          {% comment %}
+          The same rule as the overlays: nothing drawn must never be mistaken for nothing to
+          draw. A floor whose racks are cabled only internally shows no lines, and without
+          these sentences the toggle looks broken rather than answered.
+          {% endcomment %}
+          {% if not runs %}
+            <p class="text-muted small mb-1">No cable joins two racks on this floor.</p>
+          {% endif %}
+          {% if not exits %}
+            <p class="text-muted small mb-0">Nothing on this floor is cabled off it.</p>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+
+    <div class="card">
+      <h2 class="card-header">Floor</h2>
+      <table class="table table-hover attr-table">
+        {% comment %}
+        `effective_site` rather than `site`: a floor bound to a location has no site of its own,
+        and the room is not in less of a site for having been bound the other way.
+        {% endcomment %}
+        <tr><th scope="row">Site</th><td>{{ object.effective_site|linkify|placeholder }}</td></tr>
+        <tr><th scope="row">Location</th><td>{{ object.location|linkify|placeholder }}</td></tr>
+        <tr><th scope="row">Size</th><td>{{ object.width }} &times; {{ object.depth }} {{ object.get_unit_display|lower }}</td></tr>
+        <tr><th scope="row">Racks placed</th><td>{{ placed_racks|length }}</td></tr>
+        <tr>
+          <th scope="row">Not yet placed</th>
+          <td>
+            {% if unplaced_racks %}
+              <a href="{% url 'plugins:netbox_spatial_lens:floor_layout' pk=object.pk %}">{{ unplaced_racks|length }}</a>
+            {% else %}
+              0
+            {% endif %}
+          </td>
+        </tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script src="{% lens_static 'netbox_spatial_lens/state.js' %}" defer></script>
+<script src="{% lens_static 'netbox_spatial_lens/legend.js' %}" defer></script>
+<script src="{% lens_static 'netbox_spatial_lens/finder.js' %}" defer></script>
+<script src="{% lens_static 'netbox_spatial_lens/zoom.js' %}" defer></script>
+<script src="{% lens_static 'netbox_spatial_lens/floor.js' %}" defer></script>
+{% if placed_racks %}
+  {{ floor3d_config|json_script:"lens-floor3d-config" }}
+  <script type="module" src="{% lens_static 'netbox_spatial_lens/floor3d.js' %}"></script>
+{% endif %}
+{% endblock %}

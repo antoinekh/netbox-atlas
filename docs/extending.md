@@ -8,9 +8,9 @@ Each level has a registry of colourings. The buttons above each drawing list wha
 
 | Level | Register with | The function gets |
 |---|---|---|
-| Floor plan | `netbox_atlas.overlays.register_overlay` | The racks on the floor, as `Rack` objects with role, location, tenant and tags loaded |
-| Rack view | `netbox_atlas.device_overlays.register_device_overlay` | The mounted devices. Each has `.device` (with role, device type, tenant and tags loaded), `.port_count`, `.connected_count` and `.power` (`allocated_watts` and `maximum_watts`, or `None`). |
-| World map | `netbox_atlas.site_overlays.register_site_overlay` | The sites on the map, as `Site` objects with region, group and tenant loaded |
+| Floor plan | `netbox_spatial_lens.overlays.register_overlay` | The racks on the floor, as `Rack` objects with role, location, tenant and tags loaded |
+| Rack view | `netbox_spatial_lens.device_overlays.register_device_overlay` | The mounted devices. Each has `.device` (with role, device type, tenant and tags loaded), `.port_count`, `.connected_count` and `.power` (`allocated_watts` and `maximum_watts`, or `None`). |
+| World map | `netbox_spatial_lens.site_overlays.register_site_overlay` | The sites on the map, as `Site` objects with region, group and tenant loaded |
 
 All three take the same arguments: `register_…(name, label, fn, description='', legend=None)`.
 
@@ -20,7 +20,7 @@ All three take the same arguments: `register_…(name, label, fn, description=''
 
 ### What the function returns
 
-A dictionary from each item's primary key to a `netbox_atlas.overlays.RackValue(colour, label, value)`:
+A dictionary from each item's primary key to a `netbox_spatial_lens.overlays.RackValue(colour, label, value)`:
 
 - `colour`: a hex colour such as `'#4c9f70'`.
 - `label`: the reading, shown in the hover card, and in the legend when the legend is built from the data.
@@ -30,7 +30,7 @@ An item missing from the dictionary counts as no data. If the function raises, t
 
 ### The legend
 
-- **Fixed bands:** pass `legend=[LegendEntry(colour, label), …]` (`netbox_atlas.overlays.LegendEntry`). Every colour your function returns must be one of these colours. The legend counts and filters by colour. For "how full" colourings, `netbox_atlas.palette.utilisation_colour(percent)` and `netbox_atlas.overlays.UTILISATION_LEGEND` give the plugin's own four bands.
+- **Fixed bands:** pass `legend=[LegendEntry(colour, label), …]` (`netbox_spatial_lens.overlays.LegendEntry`). Every colour your function returns must be one of these colours. The legend counts and filters by colour. For "how full" colourings, `netbox_spatial_lens.palette.utilisation_colour(percent)` and `netbox_spatial_lens.overlays.UTILISATION_LEGEND` give the plugin's own four bands.
 - **Bands from the data:** pass no legend. The legend then has one entry per distinct `label`, and filters by label, so two labels may share a colour.
 
 The **No data** entry is always added last.
@@ -40,9 +40,9 @@ The **No data** entry is always added last.
 This colours each rack by a heat load recorded in a rack custom field, `heat_load_kw`, against the rack's own cooling capacity. A rack with either value missing is no data.
 
 ```python
-# yourplugin/atlas.py
-from netbox_atlas.overlays import RackValue
-from netbox_atlas.palette import utilisation_colour
+# yourplugin/lens.py
+from netbox_spatial_lens.overlays import RackValue
+from netbox_spatial_lens.palette import utilisation_colour
 
 
 def heat_overlay(racks):
@@ -73,9 +73,9 @@ class YourPluginConfig(PluginConfig):
 
     def ready(self):
         super().ready()
-        from netbox_atlas.overlays import UTILISATION_LEGEND, register_overlay
+        from netbox_spatial_lens.overlays import UTILISATION_LEGEND, register_overlay
 
-        from .atlas import heat_overlay
+        from .lens import heat_overlay
 
         register_overlay(
             'heat',
@@ -93,11 +93,11 @@ The result: a **Heat** button beside the built-in colourings, each rack gauged a
 
 ![Row 1 floor coloured by the Heat example: racks R101 to R108 gauged from 21% to 94% of their cooling capacity, with the four utilisation bands in the legend](images/extending-heat.png)
 
-List your plugin after `netbox_atlas` in `PLUGINS`. A name registered twice keeps the later registration, so this order also lets you replace a built-in colouring by registering its name.
+List your plugin after `netbox_spatial_lens` in `PLUGINS`. A name registered twice keeps the later registration, so this order also lets you replace a built-in colouring by registering its name.
 
 ## Read a floor through the REST API
 
-`GET /api/plugins/atlas/floors/<id>/layout/` returns everything one drawing of the floor needs, for a renderer of your own. It applies the same permissions as the floor page: racks and devices the caller may not view are left out.
+`GET /api/plugins/spatial-lens/floors/<id>/layout/` returns everything one drawing of the floor needs, for a renderer of your own. It applies the same permissions as the floor page: racks and devices the caller may not view are left out.
 
 | Query parameter | Effect |
 |---|---|
@@ -115,7 +115,7 @@ Positions and sizes are in centimetres from the room's top-left corner. A rack's
 | `runs` | With `runs=1`: `rack_a`, `rack_b` and the `count` of cables between them |
 | `exits` | With `runs=1`: `rack`, the `label` and `kind` of what the cables reach, their `count`, and the `x` and `y` of the point on the wall |
 
-`GET /api/plugins/atlas/floors/<id>/devices/` returns the devices in every rack on the floor, as the floor's Devices view draws them, with the same permissions. It has one entry in `racks` per placed rack:
+`GET /api/plugins/spatial-lens/floors/<id>/devices/` returns the devices in every rack on the floor, as the floor's Devices view draws them, with the same permissions. It has one entry in `racks` per placed rack:
 
 | Key | Holds |
 |---|---|
@@ -123,4 +123,4 @@ Positions and sizes are in centimetres from the room's top-left corner. A rack's
 | `cabinet` | The cabinet in millimetres, centred on its footprint with its front towards +z: `width`, `depth`, `height`, `plinth`, `interior`, `faceplate`, `frontRailZ`, `rearRailZ` |
 | `devices` | For each mounted device: `id`, `label`, `url`, `assetTag`, `box` (centre x, y, z and width, height, depth, in the cabinet's millimetres), `facing` (`front` or `rear`), `images` (`front` and `rear` URLs, empty when the device type has none), `colour` and `facts` |
 
-The three models also have the usual NetBox endpoints: `floors`, `rack-placements` and `floor-layers` under `/api/plugins/atlas/`.
+The three models also have the usual NetBox endpoints: `floors`, `rack-placements` and `floor-layers` under `/api/plugins/spatial-lens/`.

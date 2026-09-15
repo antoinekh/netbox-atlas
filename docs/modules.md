@@ -1,6 +1,6 @@
 # Modules
 
-What each part of the plugin holds. The Python modules are under `netbox_atlas/`, the scripts under `netbox_atlas/static/netbox_atlas/`.
+What each part of the plugin holds. The Python modules are under `netbox_spatial_lens/`, the scripts under `netbox_spatial_lens/static/netbox_spatial_lens/`.
 
 | Module | Holds |
 |---|---|

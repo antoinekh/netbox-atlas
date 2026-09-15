@@ -13,13 +13,13 @@ The plugin adds three models. Everything else it draws belongs to NetBox.
 
 | Model | What it is | Grant it to |
 |---|---|---|
-| `netbox_atlas.floor` | A room: a width, a depth, a site or a location | anyone who opens a floor plan |
-| `netbox_atlas.rackplacement` | A rack, an x, a y and a rotation | `view` to read a plan; `add`, `change` and `delete` to use the editor |
-| `netbox_atlas.floorlayer` | A scanned plan or photograph under the racks | anyone who should see or manage backgrounds |
+| `netbox_spatial_lens.floor` | A room: a width, a depth, a site or a location | anyone who opens a floor plan |
+| `netbox_spatial_lens.rackplacement` | A rack, an x, a y and a rotation | `view` to read a plan; `add`, `change` and `delete` to use the editor |
+| `netbox_spatial_lens.floorlayer` | A scanned plan or photograph under the racks | anyone who should see or manage backgrounds |
 
-A reader needs `view` on all three. Someone laying racks out needs `change` on `netbox_atlas.rackplacement`, which is what the **Edit layout** tab checks before it appears. Putting a rack down from the unplaced panel also needs `add`, and taking a saved rack off the floor needs `delete`; the editor does not offer either action to a user who lacks it.
+A reader needs `view` on all three. Someone laying racks out needs `change` on `netbox_spatial_lens.rackplacement`, which is what the **Edit layout** tab checks before it appears. Putting a rack down from the unplaced panel also needs `add`, and taking a saved rack off the floor needs `delete`; the editor does not offer either action to a user who lacks it.
 
-Grant them as you grant any NetBox permission: **Admin → Permissions → Add**, pick the object types, tick the actions, and assign to users or groups. Object-level constraints work the same way, so a permission on `netbox_atlas.floor` constrained to `{"site__group__name": "Branch Offices"}` gives that group's rooms and no others.
+Grant them as you grant any NetBox permission: **Admin → Permissions → Add**, pick the object types, tick the actions, and assign to users or groups. Object-level constraints work the same way, so a permission on `netbox_spatial_lens.floor` constrained to `{"site__group__name": "Branch Offices"}` gives that group's rooms and no others.
 
 ## What the drawings read
 
@@ -27,9 +27,9 @@ None of these are the plugin's own objects, and every one of them is read throug
 
 | Page | Reads | Restricted on |
 |---|---|---|
-| World map | Sites, circuits, floors | `dcim.site`, `circuits.circuit`, `netbox_atlas.floor` |
-| Site | Floors, rack placements, racks | `netbox_atlas.floor`, `dcim.rack` |
-| Floor, in 3D and in 2D | Rack placements, racks, the device count on each rack | `netbox_atlas.rackplacement`, `dcim.rack`, `dcim.device` |
+| World map | Sites, circuits, floors | `dcim.site`, `circuits.circuit`, `netbox_spatial_lens.floor` |
+| Site | Floors, rack placements, racks | `netbox_spatial_lens.floor`, `dcim.rack` |
+| Floor, in 3D and in 2D | Rack placements, racks, the device count on each rack | `netbox_spatial_lens.rackplacement`, `dcim.rack`, `dcim.device` |
 | Floor, cable runs | What a cable leaving the room reaches | `circuits.circuit`, `dcim.rack`, `dcim.site` |
 | Floor, Devices view | The devices in each placed rack, with their device type images | `dcim.rack`, `dcim.device` |
 | Layout editor | The same, plus the unplaced panel | `dcim.rack` |
@@ -48,8 +48,8 @@ Where a drawing reaches past what the reader may see, it says so without naming 
 
 **Aggregate counts on the world map are per site, not per permission.** The rack and device figures under a site marker come from a count over that site, so they include objects the reader may not open individually. If that matters to you, constrain `dcim.site` rather than `dcim.rack`: a reader who may not see the site does not see the marker at all.
 
-**A floor is not a permission boundary of its own.** It binds to a site or a location, and it inherits nothing from them. Someone with `view` on every floor sees every room, whatever the racks in them turn out to be. Constrain `netbox_atlas.floor` if the rooms themselves are sensitive.
+**A floor is not a permission boundary of its own.** It binds to a site or a location, and it inherits nothing from them. Someone with `view` on every floor sees every room, whatever the racks in them turn out to be. Constrain `netbox_spatial_lens.floor` if the rooms themselves are sensitive.
 
 ## Checking it
 
-The behaviour is covered by tests rather than by this document. `netbox_atlas/tests/test_views.py` holds a `PermissionTest` that grants a user `view` on one rack of two and asserts the other is neither drawn nor counted, and `TraceViewTest` asserts a user who may not read cables is refused a trace. `netbox_atlas/tests/test_visibility.py` covers the rest: a trace from a port the reader may not see, a hop onto a device they may not see, a far end in the rack's cabling, and the API layout. The 3D drawings are covered too: `test_scene.py` asserts a hidden device is not in the rack's scene and a hidden far end is not named, and `test_floor_scene.py` asserts a hidden rack is not in the room and a hidden device is not in the Devices view or its API.
+The behaviour is covered by tests rather than by this document. `netbox_spatial_lens/tests/test_views.py` holds a `PermissionTest` that grants a user `view` on one rack of two and asserts the other is neither drawn nor counted, and `TraceViewTest` asserts a user who may not read cables is refused a trace. `netbox_spatial_lens/tests/test_visibility.py` covers the rest: a trace from a port the reader may not see, a hop onto a device they may not see, a far end in the rack's cabling, and the API layout. The 3D drawings are covered too: `test_scene.py` asserts a hidden device is not in the rack's scene and a hidden far end is not named, and `test_floor_scene.py` asserts a hidden rack is not in the room and a hidden device is not in the Devices view or its API.

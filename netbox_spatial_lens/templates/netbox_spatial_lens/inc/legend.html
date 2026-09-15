@@ -1,0 +1,65 @@
+{% comment %}
+A legend that doubles as a tally, and as a filter.
+
+Every entry carries how many fall in it, because the question being asked of an overlay is
+usually "how many", not just "which colour means what". The no-data entry is counted the same
+way and is never dropped when it is empty: a legend that hides it teaches the reader that grey
+means nothing, and grey is the one colour that must keep meaning "not recorded".
+
+Each entry is also a button. Reading "four racks are over 90%" and then hunting the room for
+four green-ish boxes is the step the legend used to leave the reader to do by eye; clicking the
+band picks those four out and lets the rest recede.
+
+Pass `filter` naming the group of things this legend colours: `racks`, `devices`, `cables` or
+`sites`. Anything on the page carrying `data-lens-filterable="<that group>"` and a `data-band`
+is picked out by it, which is all `legend.js` needs to know. A legend with no `filter` is a key
+rather than a control, which is what the cabling legend on the floor is.
+{% endcomment %}
+<ul class="lens-legend{% if filter %} lens-legend--filterable{% endif %}"
+    {% if filter %}data-lens-filter="{{ filter }}"{% endif %}>
+  {% for entry in legend %}
+    <li{% if not entry.count %} class="is-empty"{% endif %}>
+      {% if filter %}
+        <button type="button" class="lens-legend__row" data-lens-band="{{ entry.key }}"
+                {% if not entry.count %}disabled{% endif %}
+                aria-pressed="false">
+          <span class="lens-swatch" style="background: {{ entry.colour }};"></span>
+          <span class="lens-legend__label">{{ entry.label }}</span>
+          <span class="lens-legend__count">{{ entry.count }}</span>
+        </button>
+      {% else %}
+        <span class="lens-legend__row">
+          <span class="lens-swatch" style="background: {{ entry.colour }};"></span>
+          <span class="lens-legend__label">{{ entry.label }}</span>
+          <span class="lens-legend__count">{{ entry.count }}</span>
+        </span>
+      {% endif %}
+    </li>
+  {% endfor %}
+
+  {% comment %}
+  Reserved space is not one of the overlay's bands: it is a claim on empty units, drawn hatched
+  rather than filled, and every colouring shows it. It still belongs in this list, because it is
+  a colour on the drawing the reader has to be able to look up, and picking it out answers "what
+  in this rack is spoken for" in one click.
+
+  Its band is the word rather than a colour, since the hatching has no single fill to match on.
+  {% endcomment %}
+  {% if reservations %}
+    <li>
+      {% if filter %}
+        <button type="button" class="lens-legend__row" data-lens-band="reserved" aria-pressed="false">
+          <span class="lens-swatch lens-swatch--reserved"></span>
+          <span class="lens-legend__label">Reserved units</span>
+          <span class="lens-legend__count">{{ reservations|length }}</span>
+        </button>
+      {% else %}
+        <span class="lens-legend__row">
+          <span class="lens-swatch lens-swatch--reserved"></span>
+          <span class="lens-legend__label">Reserved units</span>
+          <span class="lens-legend__count">{{ reservations|length }}</span>
+        </span>
+      {% endif %}
+    </li>
+  {% endif %}
+</ul>

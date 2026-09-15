@@ -1,8 +1,0 @@
-{% comment %}
-The palette, as CSS custom properties.
-
-Emitted from Python rather than written into the stylesheet, so the colours the server paints
-with and the colours the stylesheet paints with cannot disagree. See netbox_atlas/palette.py.
-{% endcomment %}
-{% load atlas %}
-<style>:root { {% atlas_palette %} }</style>

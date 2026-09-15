@@ -1,0 +1,20 @@
+{% comment %}
+The headline figures, above the drawing.
+
+A plan answers "where". These answer "how much", which is the question somebody usually
+arrives with, and the drawing had been leaving it to a row of grey text nobody reads.
+
+A figure that falls in a palette band carries that band as a rule down its left edge, which is
+the same device the trace panel uses for a hop's kind. The strip and the plan are then two
+readings of one set of facts: a floor that is red here is red out there.
+{% endcomment %}
+<div class="lens-stats">
+  {% for stat in stats %}
+    <div class="lens-stat{% if stat.tone %} lens-stat--toned{% endif %}"
+         {% if stat.tone %}style="--lens-stat-tone: {{ stat.tone }};"{% endif %}>
+      <span class="lens-stat__label">{{ stat.label }}</span>
+      <span class="lens-stat__value">{{ stat.value }}</span>
+      {% if stat.detail %}<span class="lens-stat__detail">{{ stat.detail }}</span>{% endif %}
+    </div>
+  {% endfor %}
+</div>

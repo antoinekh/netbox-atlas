@@ -1,6 +1,6 @@
 # Configuration
 
-Every setting is optional. Set them under `PLUGINS_CONFIG['netbox_atlas']` in NetBox's `configuration.py`.
+Every setting is optional. Set them under `PLUGINS_CONFIG['netbox_spatial_lens']` in NetBox's `configuration.py`.
 
 | Setting | Default | What it does |
 |---|---|---|
@@ -29,7 +29,7 @@ A select or multiselect custom field can narrow the floor and the rack view the 
 
 ```python
 PLUGINS_CONFIG = {
-    'netbox_atlas': {
+    'netbox_spatial_lens': {
         'filter_custom_fields': ['compliancy'],
     },
 }
@@ -46,7 +46,7 @@ The world map, the rack view and the 3D floor need a browser with WebGL, and a c
 
 ```python
 PLUGINS_CONFIG = {
-    'netbox_atlas': {
+    'netbox_spatial_lens': {
         'map_js': 'https://static.example.internal/maplibre-gl/5.6.1/maplibre-gl.min.js',
         'map_css': 'https://static.example.internal/maplibre-gl/5.6.1/maplibre-gl.min.css',
         # Your own tile server, or None for a globe with no basemap.

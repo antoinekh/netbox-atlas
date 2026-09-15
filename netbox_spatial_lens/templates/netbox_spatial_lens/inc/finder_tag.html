@@ -1,0 +1,10 @@
+{% comment %}
+One tag in a Tags finder, in its own colour, with how many racks or devices on the page carry it.
+{% endcomment %}
+<div class="lens-finder__row" data-lens-pick="{{ row.tag.slug }}" data-lens-name="{{ row.tag.name }}"
+     tabindex="0" role="checkbox" aria-checked="false">
+  <span class="lens-finder__tick" aria-hidden="true"></span>
+  <span class="lens-cable__dot" style="background: #{{ row.tag.color }};"></span>
+  <span class="lens-finder__name">{{ row.tag.name }}</span>
+  <span class="text-muted small lens-finder__meta">{{ row.count }}</span>
+</div>

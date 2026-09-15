@@ -1,0 +1,39 @@
+{% comment %}
+Where you are among the levels, and the way back up.
+
+The same strip on every level, so moving outward is in one place rather than being a different
+control on each page. Levels above the current one are links; the current one is plain text,
+because a link to the page you are on is a dead control.
+
+Takes `site`, `floor` and `rack`, any of which may be absent. Each caller names the levels it
+knows, the site included. A floor knows its own site, but reading it off the floor here would
+make the strip fail on the site page, where there is no floor to ask.
+{% endcomment %}
+<nav class="lens-levels" aria-label="Spatial Lens levels">
+  <a href="{% url 'plugins:netbox_spatial_lens:world' %}">
+    <i class="mdi mdi-earth"></i> World
+  </a>
+
+  {% if site %}
+    <i class="mdi mdi-chevron-right lens-levels__sep" aria-hidden="true"></i>
+    {% if floor or rack %}
+      <a href="{% url 'dcim:site_lens' pk=site.pk %}">{{ site.name }}</a>
+    {% else %}
+      <span class="lens-levels__here">{{ site.name }}</span>
+    {% endif %}
+  {% endif %}
+
+  {% if floor %}
+    <i class="mdi mdi-chevron-right lens-levels__sep" aria-hidden="true"></i>
+    {% if rack %}
+      <a href="{{ floor.get_absolute_url }}">{{ floor.name }}</a>
+    {% else %}
+      <span class="lens-levels__here">{{ floor.name }}</span>
+    {% endif %}
+  {% endif %}
+
+  {% if rack %}
+    <i class="mdi mdi-chevron-right lens-levels__sep" aria-hidden="true"></i>
+    <span class="lens-levels__here">{{ rack.name }}</span>
+  {% endif %}
+</nav>
