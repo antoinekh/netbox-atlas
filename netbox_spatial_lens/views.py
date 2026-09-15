@@ -28,7 +28,14 @@ from netbox_spatial_lens.field_filters import cells_for, field_filters
 from netbox_spatial_lens.floor_cabling import build_floor_exits, build_floor_runs, cabling_legend
 from netbox_spatial_lens.floor_scene import build_floor_scene
 from netbox_spatial_lens.geometry import floor_viewport, metre_ticks, rack_footprint_cm
-from netbox_spatial_lens.layout import build_layout, floor_summary, rack_rows, resolve_overlay, unplaced_racks
+from netbox_spatial_lens.layout import (
+    build_layout,
+    build_layouts,
+    floor_summary,
+    rack_rows,
+    resolve_overlay,
+    unplaced_racks,
+)
 from netbox_spatial_lens.models import Floor, FloorLayer, RackPlacement
 from netbox_spatial_lens.overlays import get_overlays
 from netbox_spatial_lens.palette import (
@@ -264,19 +271,21 @@ class SiteLensView(generic.ObjectView):
     tab = ViewTab(label='Spatial Lens', permission='dcim.view_site', badge=lambda site: Floor.in_site(site).count())
 
     def get_extra_context(self, request, instance):
-        floors = Floor.in_site(instance, Floor.objects.restrict(request.user, 'view')).select_related(
-            'site', 'location'
+        floors = list(
+            Floor.in_site(instance, Floor.objects.restrict(request.user, 'view')).select_related('site', 'location')
         )
         racks = Rack.objects.restrict(request.user, 'view').filter(site=instance)
         devices = Device.objects.restrict(request.user, 'view')
 
         # A thumbnail of each room, drawn from the same layout the floor page draws, so this
-        # page is an index of plans rather than a table of names. A site holds a handful of
-        # rooms, so a layout apiece is affordable where one per rack would not be.
+        # page is an index of plans rather than a table of names. Read for every room at once,
+        # with space and power measured once for the summaries, so a site of many rooms costs
+        # what a site of one does.
         overlay = resolve_overlay(request.GET.get('overlay'))
+        layouts = build_layouts(floors, overlay, racks=racks, devices=devices, measure=True)
         rooms = []
         for floor in floors:
-            placed = build_layout(floor, overlay, racks=racks, devices=devices)
+            placed = layouts[floor.pk]
             view = floor_viewport(floor)
             step = int(view.step / 100)
             rooms.append(

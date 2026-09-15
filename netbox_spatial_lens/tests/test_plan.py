@@ -10,8 +10,8 @@ plan agree with the colours on it.
 
 from netbox_spatial_lens.elevation import build_elevation, rack_summary
 from netbox_spatial_lens.geometry import metre_step, metre_ticks, size_labels
-from netbox_spatial_lens.layout import build_layout, floor_summary
-from netbox_spatial_lens.overlays import floor_space_utilisation, get_overlay
+from netbox_spatial_lens.layout import build_layout, build_layouts, floor_summary
+from netbox_spatial_lens.overlays import Overlay, floor_space_utilisation, get_overlay
 from netbox_spatial_lens.tests.base import (
     LensTestCase,
     make_device,
@@ -124,6 +124,33 @@ class GaugeTest(LensTestCase):
         placed = build_layout(self.floor, get_overlay('space'))[0]
         self.assertLessEqual(placed.gauge_width, placed.gauge_track_width)
         self.assertGreaterEqual(placed.gauge_width, 0)
+
+
+class SeveralFloorsTest(LensTestCase):
+    """
+    Several rooms read together, as the site page draws them.
+    """
+
+    def setUp(self):
+        self.hall = make_floor(self.site, name='Hall')
+        self.cage = make_floor(self.site, name='Cage')
+        self.empty = make_floor(self.site, name='Empty')
+        place(self.hall, make_rack(self.site, name='H1'))
+        place(self.cage, make_rack(self.site, name='C1'))
+
+    def test_each_floor_gets_its_own_racks(self):
+        layouts = build_layouts([self.hall, self.cage, self.empty], None)
+        self.assertEqual([p.rack.name for p in layouts[self.hall.pk]], ['H1'])
+        self.assertEqual([p.rack.name for p in layouts[self.cage.pk]], ['C1'])
+        self.assertEqual(layouts[self.empty.pk], [])
+
+    def test_an_overlay_is_handed_one_room_at_a_time(self):
+        # Extending promises a colouring the racks on the floor. Handed every room at once, one
+        # that compares the racks in a room would silently compare across the site.
+        seen = []
+        overlay = Overlay(name='probe', label='Probe', fn=lambda racks: seen.append({r.name for r in racks}))
+        build_layouts([self.hall, self.cage], overlay)
+        self.assertCountEqual(seen, [{'H1'}, {'C1'}])
 
 
 class SpaceUtilisationTest(LensTestCase):

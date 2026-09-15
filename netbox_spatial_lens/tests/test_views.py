@@ -4,8 +4,9 @@ The pages render, and they tell the truth about what they could not answer.
 
 from core.models import ObjectType
 from dcim.models import Site
-from django.db import transaction
+from django.db import connection, transaction
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from users.models import User
 from utilities.testing import create_test_user
@@ -19,6 +20,7 @@ from netbox_spatial_lens.tests.base import (
     make_floor,
     make_rack,
     place,
+    power_feed,
 )
 from netbox_spatial_lens.world import build_world
 
@@ -246,6 +248,24 @@ class SiteLensViewTest(ViewTestCase):
         response = self.client.get(self._url())
         self.assertContains(response, 'Hall')
         self.assertNotContains(response, 'Row 1 floor')
+
+    def test_the_cost_does_not_grow_with_the_rooms(self):
+        # Each room drawn on its own repeated the placement, device count, space and power
+        # queries, so a site of twenty rooms cost twenty times one. Every room here has a rack
+        # with a feed, so the power walk has something to read in each of them.
+        def cost(rooms):
+            site = Site.objects.create(name=f'{rooms} rooms', slug=f'rooms-{rooms}')
+            for n in range(rooms):
+                rack = make_rack(site, name=f'R{rooms}-{n}')
+                power_feed(rack, name=f'feed-{rooms}-{n}')
+                place(make_floor(site, name=f'Room {n}'), rack)
+            url = reverse('dcim:site_lens', args=[site.pk])
+            self.client.get(url)
+            with CaptureQueriesContext(connection) as captured:
+                self.client.get(url)
+            return len(captured.captured_queries)
+
+        self.assertEqual(cost(4), cost(1))
 
 
 class SiteLinkTest(ViewTestCase):

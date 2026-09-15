@@ -29,6 +29,7 @@ from netbox_spatial_lens.palette import utilisation_colour
 __all__ = (
     'RackRow',
     'build_layout',
+    'build_layouts',
     'floor_summary',
     'rack_rows',
     'resolve_overlay',
@@ -67,18 +68,46 @@ def build_layout(floor, overlay, racks=None, devices=None) -> list[PlacedRack]:
     `devices` is restricted the same way, for the device count on each rack: a count that
     includes devices the reader may not open says something the rack page would not.
     """
+    return build_layouts([floor], overlay, racks=racks, devices=devices)[floor.pk]
+
+
+def build_layouts(floors, overlay, racks=None, devices=None, measure=False) -> dict[int, list[PlacedRack]]:
+    """
+    The layouts of several floors, read together, keyed by floor id.
+
+    The site page draws every room at once. Read a floor at a time, each room repeated the
+    placement, device count, space and power queries, so a site of twenty rooms cost twenty
+    times one. Here the placements and the device counts are one query each for every floor.
+
+    `measure` walks space and power once over the racks of every floor before the overlay
+    runs. Pass it where each floor's summary is shown, as on the site page: the overlay and
+    `floor_summary` then find both answers already on the racks. A drawing that needs neither,
+    such as the editor, leaves it off and does not pay for them.
+
+    The overlay is still handed the racks of one floor at a time, which is what `extending.md`
+    promises, so a colouring that compares the racks in a room keeps seeing one room.
+
+    `racks` and `devices` restrict what is drawn, as in `build_layout`.
+    """
+    floors = list(floors)
     placements = (
-        RackPlacement.objects.filter(floor=floor)
+        RackPlacement.objects.filter(floor__in=floors)
         .select_related('rack', 'rack__role', 'rack__location', 'rack__tenant')
-        # For the Tags finder, the rack table and the hover card, in one query for the floor.
+        # For the Tags finder, the rack table and the hover card, in one query for every floor.
         .prefetch_related('rack__tags')
     )
     if racks is not None:
         placements = placements.filter(rack__in=racks)
     placements = list(placements)
-    racks = [placement.rack for placement in placements]
 
-    values = overlay.evaluate(racks) if overlay else {}
+    by_floor: dict[int, list[RackPlacement]] = {floor.pk: [] for floor in floors}
+    for placement in placements:
+        by_floor[placement.floor_id].append(placement)
+
+    if measure:
+        every_rack = [placement.rack for placement in placements]
+        floor_space_utilisation(every_rack)
+        floor_power_utilisation(every_rack)
 
     device_base = Device.objects.all() if devices is None else devices
     device_counts = dict(
@@ -88,6 +117,18 @@ def build_layout(floor, overlay, racks=None, devices=None) -> list[PlacedRack]:
         .annotate(n=Count('pk'))
         .values_list('rack_id', 'n')
     )
+
+    return {
+        floor_id: _place_racks(floor_placements, overlay, device_counts)
+        for floor_id, floor_placements in by_floor.items()
+    }
+
+
+def _place_racks(placements: Sequence[RackPlacement], overlay, device_counts: dict[int, int]) -> list[PlacedRack]:
+    """
+    One floor's placements as racks to draw, coloured by the overlay.
+    """
+    values = overlay.evaluate([placement.rack for placement in placements]) if overlay else {}
 
     placed = []
     for placement in placements:
