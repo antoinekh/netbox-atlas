@@ -11,7 +11,7 @@
  * `floor.js` owns the switch between the two views, and is told here when 3D cannot be drawn.
  */
 
-import { CABINET_FINISH, PICK_LAYER, isDark, openStage } from 'atlas/stage3d';
+import { CABINET_FINISH, PICK_LAYER, follow, isDark, openStage } from 'atlas/stage3d';
 
 const element = document.querySelector('[data-atlas-3d]');
 const configNode = document.getElementById('atlas-floor3d-config');
@@ -170,13 +170,12 @@ function build(stage, config) {
     name.center.set(0.5, 1);
     scene.add(name);
 
-    const view = { rack, mesh, materials, outline, name, cabling: [] };
+    const view = { rack, mesh, materials, outline, name };
     mesh.userData.rack = view;
     return view;
   }
 
   const rackViews = racks.map(rackView);
-  const rackById = new Map(rackViews.map((view) => [view.rack.id, view]));
 
   /* ----------------------------------------------------------------------
    * Cabling
@@ -208,7 +207,6 @@ function build(stage, config) {
     const { mesh, material, pick } = tube(new THREE.QuadraticBezierCurve3(a, c, b), run.radius, run.colour);
     const view = { run, material, meshes: [mesh], pickables: [pick], rackIds: run.rackIds };
     pick.userData.run = view;
-    run.rackIds.forEach((id) => rackById.get(id)?.cabling.push(view));
     return view;
   });
 
@@ -226,7 +224,6 @@ function build(stage, config) {
     const view = { exit, material, name, meshes: [mesh, marker], pickables: [pick, marker], rackIds: [exit.rackId] };
     pick.userData.exit = view;
     marker.userData.exit = view;
-    rackById.get(exit.rackId)?.cabling.push(view);
     return view;
   });
 
@@ -314,9 +311,9 @@ function build(stage, config) {
     },
     hover: apply,
     // A rack leads inside it, as it does on the plan; an exit leads to what it reaches.
-    click(target) {
-      if (target && target.rack) window.location.href = target.rack.url;
-      else if (target && target.exit && target.exit.url) window.location.href = target.exit.url;
+    click(target, event) {
+      if (target && target.rack) follow(target.rack.url, event);
+      else if (target && target.exit) follow(target.exit.url, event);
     },
   });
 

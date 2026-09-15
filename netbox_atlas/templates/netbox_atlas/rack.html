@@ -50,13 +50,19 @@
           {% include 'netbox_atlas/inc/help.html' with text='Drag to turn the rack, right-drag to move it, scroll to zoom. Click a device to show what it is cabled to. Double-click a device to open it. Click a cable to trace it. The find box matches a name or an asset tag; Tags narrows to the devices with any tag you tick. Click legend bands to filter; you can pick several. Escape clears.' %}
         </div>
 
+        {% comment %}
+        The four figures somebody walks up to a rack with. They were all on the page already,
+        spread between a line of muted text, a badge halfway down a card, and a panel you had
+        to select a device to open, which meant a reader wanting to know whether this cabinet
+        had room left with none of them.
+        {% endcomment %}
         {% include 'netbox_atlas/inc/stats.html' with stats=stats %}
 
         {% comment %}
         One renderer: a Three.js scene, drawn by rack3d.js from the scene at the foot of the
         page. The message covers the stage until the rack is drawn, and stays with the reason
-        when it cannot be: the tab is turned off, there is no WebGL, or Three.js could not be
-        loaded. The strip above and the column beside work without the drawing.
+        when it cannot be: the drawing is turned off, there is no WebGL, or Three.js could not
+        be loaded. The strip above and the column beside work without the drawing.
         {% endcomment %}
         <div class="atlas-stage atlas-3d" data-atlas-3d>
           <div class="atlas-3d__canvas" data-atlas-3d-canvas></div>

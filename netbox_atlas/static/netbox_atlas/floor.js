@@ -246,14 +246,16 @@
   const views = document.querySelectorAll('[data-atlas-floor-panel]');
   const switches = document.querySelectorAll('[data-atlas-floor-view]');
 
-  function showView(name) {
+  /* Show one view. `keep` records it in the URL; a view the page fell back to is not the
+     reader's choice, and keeping it would open the plan again after 3D has been fixed. */
+  function showView(name, { keep = true } = {}) {
     views.forEach((view) => (view.hidden = view.dataset.atlasFloorPanel !== name));
     switches.forEach(function (button) {
       const on = button.dataset.atlasFloorView === name;
       button.classList.toggle('active', on);
       button.setAttribute('aria-pressed', String(on));
     });
-    if (window.atlasState) window.atlasState.set('view', name === '2d' ? ['2d'] : []);
+    if (keep && window.atlasState) window.atlasState.set('view', name === '2d' ? ['2d'] : []);
     if (hover) hide();
   }
 
@@ -274,7 +276,7 @@
         button.disabled = true;
         button.title = reason;
       });
-      showView('2d');
+      showView('2d', { keep: false });
     },
   };
 

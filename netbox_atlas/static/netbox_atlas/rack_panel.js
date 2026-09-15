@@ -109,7 +109,6 @@
    * set of cables the drawing lit for it, and `label` names a selected device in the
    * allocation card's header. */
   function show(selection, { cableIds = null, label = 'device' } = {}) {
-    document.body.classList.toggle('atlas-has-selection', Boolean(selection));
     showReservation(selection && selection.type === 'reservation' ? selection.id : null);
     markRows(selection, cableIds);
 

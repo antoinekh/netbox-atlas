@@ -37,6 +37,14 @@ export const CABINET_FINISH = {
   door: { color: 0x4b535e, metalness: 0.2, roughness: 0.5 },
 };
 
+/* Go to a URL the way a link would: in a new tab for a middle click or with Ctrl or Cmd held,
+   since a drawing on a canvas has no link for the browser to do that itself. */
+export function follow(url, event) {
+  if (!url) return;
+  if (event && (event.button === 1 || event.ctrlKey || event.metaKey)) window.open(url, '_blank', 'noopener');
+  else window.location.href = url;
+}
+
 /* A failure the reader can act on, shown on the stage as it is worded. */
 export class ReaderError extends Error {}
 
@@ -458,13 +466,14 @@ function createStage(element, lib) {
   renderer.domElement.addEventListener('pointerup', function (event) {
     const press = pressed;
     pressed = null;
-    if (!press || press.button !== 0 || !picking) return;
+    // The main button, or the middle one, which is how a link is opened in a new tab.
+    if (!press || (press.button !== 0 && press.button !== 1) || !picking) return;
     if (Math.hypot(event.clientX - press.x, event.clientY - press.y) > CLICK_TOLERANCE) return;
-    picking.click(hitAt(event.clientX, event.clientY));
+    picking.click(hitAt(event.clientX, event.clientY), event);
   });
 
   renderer.domElement.addEventListener('dblclick', function (event) {
-    if (picking && picking.open) picking.open(hitAt(event.clientX, event.clientY));
+    if (picking && picking.open) picking.open(hitAt(event.clientX, event.clientY), event);
   });
 
   /* ----------------------------------------------------------------------
@@ -553,7 +562,7 @@ function createStage(element, lib) {
      *
      * `objects()` lists the meshes to test, `choose(hits)` turns the sorted hits into a target
      * or null, `describe(target)` gives the hover card as { title, lines }, `hover(target)` and
-     * `click(target)` react, and `open(target)`, if given, answers a double click. */
+     * `click(target, event)` react, and `open(target, event)`, if given, answers a double click. */
     setPicking(options) {
       picking = options;
     },

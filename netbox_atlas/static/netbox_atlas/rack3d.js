@@ -8,7 +8,7 @@
  * beside the drawing can follow it.
  */
 
-import { CABINET_FINISH, PICK_LAYER, isDark, openStage, textOn } from 'atlas/stage3d';
+import { CABINET_FINISH, PICK_LAYER, follow, isDark, openStage, textOn } from 'atlas/stage3d';
 
 const panel = window.atlasRackPanel;
 const element = document.querySelector('[data-atlas-3d]');
@@ -552,7 +552,9 @@ function build(stage, config) {
       return { title: target.band.label };
     },
     hover: apply,
-    click(target) {
+    click(target, event) {
+      // The middle button is for opening in a new tab, which only a double click does here.
+      if (event.button !== 0) return;
       if (!target) return clearSelection();
       if (target.device) {
         select('device', String(target.device.id));
@@ -567,8 +569,8 @@ function build(stage, config) {
     },
     // A device opens on a double click, so a single click keeps its more useful meaning of
     // "show me what this connects to".
-    open(target) {
-      if (target && target.device) window.location.href = target.device.url;
+    open(target, event) {
+      if (target && target.device) follow(target.device.url, event);
     },
   });
 
