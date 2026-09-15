@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- **Docs:** the README's floor section shows the 3D Devices view instead of the 2D plan.
+- **Docs:** the README's floor section shows the 3D Devices view instead of the 2D plan, and its site section shows all the rooms of a site side by side, as on a 27-inch screen.
 
 ## v0.2.0 (2026-09-15)
 
