@@ -8,10 +8,11 @@ from django.conf import settings
 from django.test import override_settings
 from django.urls import reverse
 
+from netbox_atlas.elevation import build_elevation
 from netbox_atlas.floor_cabling import build_floor_exits, build_floor_runs
-from netbox_atlas.floor_scene import RUN_RISE_MIN_MM, TRAY_ABOVE_MM, build_floor_scene
+from netbox_atlas.floor_scene import RUN_RISE_MIN_MM, TRAY_ABOVE_MM, build_floor_devices, build_floor_scene
 from netbox_atlas.layout import build_layout, resolve_overlay
-from netbox_atlas.scene import PLINTH_MM, ROOF_MM, UNIT_MM
+from netbox_atlas.scene import PLINTH_MM, ROOF_MM, UNIT_MM, CabinetFrame, build_scene
 from netbox_atlas.tests.base import AtlasTestCase, cable, make_device, make_floor, make_rack, place
 from netbox_atlas.tests.test_views import ViewTestCase, grant
 
@@ -213,3 +214,93 @@ class FloorSceneVisibilityTest(ViewTestCase):
         names = [r['name'] for r in response.context['floor3d_config']['scene']['racks']]
         self.assertEqual(names, ['MINE'])
         self.assertNotContains(response, 'SECRETRACK')
+
+
+class FloorDevicesTest(ViewTestCase):
+    def setUp(self):
+        super().setUp()
+        self.floor = make_floor(self.site)
+        self.rack = make_rack(self.site, name='R1', u_height=42)
+        place(self.floor, self.rack, x=100, y=100, rotation=90)
+        self.front = make_device(self.site, self.rack, 'front', self.role, self.manufacturer, position=1, u_height=2)
+        self.back = make_device(
+            self.site, self.rack, 'back', self.role, self.manufacturer, position=20, full_depth=False, face='rear'
+        )
+
+    def _data(self, racks=None, devices=None):
+        from dcim.models import Device, Rack
+
+        return build_floor_devices(
+            self.floor,
+            racks=racks if racks is not None else Rack.objects.all(),
+            devices=devices if devices is not None else Device.objects.all(),
+        )
+
+    def test_a_device_sits_where_the_rack_view_puts_it(self):
+        # The floor draws each rack's devices from the rack view's own geometry, so a device
+        # cannot be at one height in the room and another inside the rack.
+        rack_scene = build_scene(build_elevation(self.rack)).as_json()
+        in_rack = {d['id']: d['box'] for d in rack_scene['devices']}
+        on_floor = {d['id']: d['box'] for d in self._data()['racks'][0]['devices']}
+        self.assertEqual(on_floor, in_rack)
+
+    def test_the_cabinet_is_the_rack_views(self):
+        entry = self._data()['racks'][0]
+        self.assertEqual(entry['cabinet'], CabinetFrame(self.rack).as_json())
+        self.assertEqual(entry['id'], self.rack.pk)
+
+    def test_a_device_the_reader_may_not_see_is_left_out(self):
+        from dcim.models import Device
+
+        devices = self._data(devices=Device.objects.filter(name='front'))['racks'][0]['devices']
+        self.assertEqual([d['label'] for d in devices], ['front'])
+
+    def test_a_rack_on_no_floor_is_left_out(self):
+        make_rack(self.site, name='Elsewhere')
+        self.assertEqual([r['id'] for r in self._data()['racks']], [self.rack.pk])
+
+    def test_the_hover_card_does_not_count_ports_it_did_not_load(self):
+        facts = self._data()['racks'][0]['devices'][0]['facts']
+        self.assertFalse(any('ports connected' in fact for fact in facts))
+
+    def test_the_hover_card_names_a_whole_unit_without_a_decimal(self):
+        facts = self._data()['racks'][0]['devices'][0]['facts']
+        self.assertIn('U1 · mounted front', facts)
+
+    def test_the_cost_does_not_grow_with_the_floor(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        with CaptureQueriesContext(connection) as small:
+            self._data()
+        for index in range(3):
+            rack = make_rack(self.site, name=f'More{index}')
+            place(self.floor, rack, x=300 + index * 100, y=100)
+            make_device(self.site, rack, f'more{index}', self.role, self.manufacturer)
+        with CaptureQueriesContext(connection) as large:
+            self._data()
+        self.assertEqual(len(large), len(small))
+
+    def test_the_api_serves_them(self):
+        url = reverse('plugins-api:netbox_atlas-api:floor-devices', args=[self.floor.pk])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()['racks'][0]['devices']), 2)
+
+    def test_the_api_hides_what_the_reader_may_not_see(self):
+        self.user.is_superuser = False
+        self.user.save()
+        grant(self.user, 'netbox_atlas.floor')
+        grant(self.user, 'dcim.rack')
+        grant(self.user, 'dcim.device', constraints={'name': 'front'})
+        url = reverse('plugins-api:netbox_atlas-api:floor-devices', args=[self.floor.pk])
+        labels = [d['label'] for d in self.client.get(url).json()['racks'][0]['devices']]
+        self.assertEqual(labels, ['front'])
+
+    def test_the_page_says_where_to_fetch_them(self):
+        response = self.client.get(self.floor.get_absolute_url())
+        self.assertEqual(
+            response.context['floor3d_config']['devicesUrl'],
+            reverse('plugins-api:netbox_atlas-api:floor-devices', args=[self.floor.pk]),
+        )
+        self.assertContains(response, 'data-atlas-rack-display="devices"')

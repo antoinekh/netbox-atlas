@@ -25,6 +25,7 @@ __all__ = (
     'RackElevation',
     'ReservedBand',
     'build_elevation',
+    'mount_device',
     'rack_summary',
     'unit_offset',
 )
@@ -113,7 +114,13 @@ def _role_colour(device) -> str:
     return f'#{role.color}' if role and role.color else NO_ROLE_COLOUR
 
 
-def _mount(rack, device) -> MountedDevice:
+def mount_device(rack, device) -> MountedDevice:
+    """
+    One device with a U position, placed in its rack in rack units.
+
+    Public so a drawing of many racks at once, such as the floor's devices, places a device
+    exactly the way the rack's own view does.
+    """
     u_height = float(device.device_type.u_height or 1)
     return MountedDevice(
         device=device,
@@ -292,7 +299,7 @@ def build_elevation(rack, devices_queryset=None) -> 'RackElevation':
             # child device in a chassis or for something simply not recorded yet.
             unplaced.append(device)
             continue
-        mounted.append(_mount(rack, device))
+        mounted.append(mount_device(rack, device))
 
     ports_by_device = load_ports({m.device.pk for m in mounted})
     power_by_device = load_device_power([m.device for m in mounted])

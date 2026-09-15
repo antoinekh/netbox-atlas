@@ -6,11 +6,16 @@
  * with its roof in the same colour so the room reads like the plan from above, and the cabling
  * between racks and off the floor as tubes over their tops.
  *
+ * Two ways to show a rack: a solid cabinet coloured by the floor's colouring, or the open cabinet
+ * with its real devices in it, the way the rack's own view draws them. The devices are fetched
+ * the first time the reader asks for them, since a floor of fifty racks is a thousand devices.
+ *
  * Everything else on the page is the plan's: the legend, the finders, the find box and the
  * table narrow the plan's racks with classes, and this reads the same picks to fade its own.
  * `floor.js` owns the switch between the two views, and is told here when 3D cannot be drawn.
  */
 
+import { drawCabinet, drawDevice } from 'atlas/cabinet3d';
 import { CABINET_FINISH, PICK_LAYER, follow, isDark, openStage } from 'atlas/stage3d';
 
 const element = document.querySelector('[data-atlas-3d]');
@@ -117,6 +122,15 @@ function build(stage, config) {
     group.position.set(rack.x, 0, rack.z);
     group.rotation.y = rack.rotation;
     scene.add(group);
+    // The cabinet as a solid, for the Cabinets view.
+    const solid = new THREE.Group();
+    group.add(solid);
+    // The open cabinet and its devices, for the Devices view. Turned half round, because the
+    // rack's own geometry has its front towards +z and the plan puts a rack's front on -z.
+    const detail = new THREE.Group();
+    detail.rotation.y = Math.PI;
+    detail.visible = false;
+    group.add(detail);
 
     const { width: w, depth: d, height: h } = rack;
     const colour = new THREE.Color(rack.colour || '#8a8f98');
@@ -130,7 +144,7 @@ function build(stage, config) {
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.layers.enable(PICK_LAYER);
-    group.add(mesh);
+    solid.add(mesh);
 
     // A door front and rear, the front on the -z face the plan draws its front bar on. A
     // colouring that measures a quantity fills each from the bottom to the reading, so the
@@ -154,7 +168,7 @@ function build(stage, config) {
         const panel = new THREE.Mesh(new THREE.PlaneGeometry(doorWidth, height), material);
         panel.position.set(0, y, z);
         panel.rotation.y = turn;
-        group.add(panel);
+        solid.add(panel);
       });
     });
 
@@ -170,12 +184,94 @@ function build(stage, config) {
     name.center.set(0.5, 1);
     scene.add(name);
 
-    const view = { rack, mesh, materials, outline, name };
+    // The colouring stays on the roof when the devices are shown, so the room still reads like
+    // the plan from above.
+    const cap = new THREE.Mesh(new THREE.PlaneGeometry(w - 52, d - 52), roof);
+    cap.rotation.x = -Math.PI / 2;
+    cap.position.y = h - 13;
+    detail.add(cap);
+
+    const view = { rack, mesh, materials, outline, name, solid, detail, devices: [], detailMaterials: [] };
     mesh.userData.rack = view;
     return view;
   }
 
   const rackViews = racks.map(rackView);
+
+  /* ----------------------------------------------------------------------
+   * Devices
+   * ------------------------------------------------------------------- */
+
+  const rackSwitch = element.querySelector('[data-atlas-3d-controls]');
+  let showDevices = Boolean(window.atlasState && window.atlasState.get('racks')[0] === 'devices');
+  let devicesLoaded = null;
+  const deviceMeshes = [];
+
+  /* Fetch every rack's devices, once, and build them into each rack's open cabinet. */
+  function loadDevices() {
+    if (!devicesLoaded) {
+      const byId = new Map(rackViews.map((view) => [view.rack.id, view]));
+      devicesLoaded = fetch(config.devicesUrl, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+        .then(function (response) {
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          return response.json();
+        })
+        .then(function (data) {
+          data.racks.forEach(function (entry) {
+            const view = byId.get(entry.id);
+            if (!view) return;
+            view.detailMaterials.push(...drawCabinet(stage, view.detail, entry.cabinet).materials);
+            entry.devices.forEach(function (device) {
+              const box = drawDevice(stage, view.detail, device);
+              box.mesh.userData.device = { box, rack: view };
+              view.devices.push(box);
+              deviceMeshes.push(box.mesh);
+            });
+          });
+        });
+    }
+    return devicesLoaded;
+  }
+
+  function markRacks() {
+    rackSwitch.querySelectorAll('[data-atlas-rack-display]').forEach(function (button) {
+      const on = (button.dataset.atlasRackDisplay === 'devices') === showDevices;
+      button.classList.toggle('active', on);
+      button.setAttribute('aria-pressed', String(on));
+    });
+  }
+
+  function showRacks() {
+    rackViews.forEach(function (view) {
+      view.solid.visible = !showDevices;
+      view.detail.visible = showDevices;
+    });
+    markRacks();
+    apply();
+  }
+
+  function setDevices(on) {
+    showDevices = on;
+    if (window.atlasState) window.atlasState.set('racks', on ? ['devices'] : []);
+    if (!on) return showRacks();
+    const button = rackSwitch.querySelector('[data-atlas-rack-display="devices"]');
+    button.disabled = true;
+    loadDevices()
+      .then(showRacks)
+      .catch(function (error) {
+        console.warn('netbox-atlas could not load the devices:', error);
+        devicesLoaded = null;
+        button.title = 'The devices could not be loaded. The browser console has the detail.';
+        showDevices = false;
+        showRacks();
+      })
+      .finally(() => (button.disabled = false));
+  }
+
+  rackSwitch.addEventListener('click', function (event) {
+    const button = event.target.closest('[data-atlas-rack-display]');
+    if (button) setDevices(button.dataset.atlasRackDisplay === 'devices');
+  });
 
   /* ----------------------------------------------------------------------
    * Cabling
@@ -257,13 +353,19 @@ function build(stage, config) {
     const showNames = stage.showNames();
     const inFocus = new Set();
 
+    // Hovering a device lights the rack it is in, as hovering the rack does.
+    const hoveredRack = hovered && hovered.box ? hovered.rack : hovered;
     rackViews.forEach(function (view) {
       const kept = rackInFocus(view.rack, bands);
       if (kept) inFocus.add(view.rack.id);
       const opacity = kept ? 1 : FILTERED_OPACITY;
-      view.materials.forEach((material) => stage.setOpacity(material, opacity));
+      view.materials.concat(view.detailMaterials).forEach((material) => stage.setOpacity(material, opacity));
+      view.devices.forEach(function (box) {
+        [box.faces.front, box.faces.rear, box.body].forEach((material) => stage.setOpacity(material, opacity));
+        box.mesh.castShadow = kept;
+      });
       view.mesh.castShadow = kept;
-      const lit = hovered === view;
+      const lit = hoveredRack === view;
       view.outline.material.opacity = lit ? 1 : 0;
       view.name.visible = kept && (showNames || lit);
     });
@@ -272,11 +374,11 @@ function build(stage, config) {
     // filter takes its cabling with it. Hidden rather than faded, because cabling to the same
     // place off the floor ends on the same corner of the room, and six faded tubes drawn on one
     // path stack back up to a solid one.
-    const hoveredRack = hovered && hovered.rack ? hovered.rack.id : null;
+    const hoveredRackId = hoveredRack && hoveredRack.rack ? hoveredRack.rack.id : null;
     runViews.concat(exitViews).forEach(function (view) {
       const kept = view.rackIds.every((id) => inFocus.has(id));
       view.meshes.concat(view.pickables).forEach((mesh) => (mesh.visible = kept));
-      const lit = hovered === view || view.rackIds.includes(hoveredRack);
+      const lit = hovered === view || view.rackIds.includes(hoveredRackId);
       view.material.emissiveIntensity = lit ? 0.45 : 0;
       if (view.name) view.name.visible = kept && lit;
     });
@@ -292,14 +394,18 @@ function build(stage, config) {
   const pickable = [...rackViews.map((v) => v.mesh), ...runViews.concat(exitViews).flatMap((v) => v.pickables)];
 
   stage.setPicking({
-    objects: () => pickable,
+    objects: () => (showDevices ? pickable.concat(deviceMeshes) : pickable),
     choose(hits) {
       const first = hits[0];
       if (!first) return null;
       const data = first.object.userData;
-      return data.rack || data.exit || data.run || null;
+      return data.device || data.rack || data.exit || data.run || null;
     },
     describe(target) {
+      if (target.box) {
+        const device = target.box.device;
+        return { title: device.label, lines: [`in ${target.rack.rack.name}`, ...device.facts] };
+      }
       if (target.run) return { title: target.run.label };
       if (target.exit) return { title: target.exit.title };
       const rack = target.rack;
@@ -312,7 +418,8 @@ function build(stage, config) {
     hover: apply,
     // A rack leads inside it, as it does on the plan; an exit leads to what it reaches.
     click(target, event) {
-      if (target && target.rack) follow(target.rack.url, event);
+      if (target && target.box) follow(target.rack.rack.url, event);
+      else if (target && target.rack) follow(target.rack.url, event);
       else if (target && target.exit) follow(target.exit.url, event);
     },
   });
@@ -343,6 +450,8 @@ function build(stage, config) {
 
   paintRoom();
   stage.start(VIEWS, 'angle', { names: true });
+  if (showDevices) setDevices(true);
+  else markRacks();
 }
 
 if (element && configNode) {

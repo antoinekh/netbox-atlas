@@ -402,12 +402,18 @@ function createStage(element, lib) {
   let pendingMove = null;
   let pressed = null;
 
+  function shown(object) {
+    for (let node = object; node; node = node.parent) if (!node.visible) return false;
+    return true;
+  }
+
   function hitAt(clientX, clientY) {
     const box = renderer.domElement.getBoundingClientRect();
     pointer.set(((clientX - box.left) / box.width) * 2 - 1, -((clientY - box.top) / box.height) * 2 + 1);
     raycaster.setFromCamera(pointer, camera);
-    // A raycaster tests hidden meshes too, and something hidden must not take the pointer.
-    const hits = raycaster.intersectObjects(picking.objects(), false).filter((hit) => hit.object.visible);
+    // A raycaster tests hidden meshes too, and something hidden, or inside a hidden group, must
+    // not take the pointer.
+    const hits = raycaster.intersectObjects(picking.objects(), false).filter((hit) => shown(hit.object));
     return picking.choose(hits);
   }
 

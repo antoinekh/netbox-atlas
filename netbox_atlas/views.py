@@ -94,7 +94,10 @@ def three_stage() -> ThreeStage:
         base = f'{base}/'
     # The stage module is always mapped, even with Three.js turned off, so the page can still
     # load it and say on the stage why nothing is drawn.
-    imports = {'atlas/stage3d': atlas_static('netbox_atlas/stage3d.js')}
+    imports = {
+        'atlas/stage3d': atlas_static('netbox_atlas/stage3d.js'),
+        'atlas/cabinet3d': atlas_static('netbox_atlas/cabinet3d.js'),
+    }
     if base:
         imports.update({'three': f'{base}build/three.module.js', 'three/addons/': f'{base}examples/jsm/'})
     return ThreeStage(imports=imports, config={'enabled': bool(base), 'threeBase': base})
@@ -142,6 +145,8 @@ class FloorView(generic.ObjectView):
             'floor3d_config': {
                 **stage.config,
                 'scene': build_floor_scene(instance, placed, runs, exits).as_json(),
+                # The devices in each rack, fetched only when the reader switches to them.
+                'devicesUrl': reverse('plugins-api:netbox_atlas-api:floor-devices', args=[instance.pk]),
                 'colours': {'highlight': HIGHLIGHT, 'highlightDark': HIGHLIGHT_DARK},
             },
             'overlays': get_overlays(),

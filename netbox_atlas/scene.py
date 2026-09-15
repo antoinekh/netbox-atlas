@@ -22,12 +22,15 @@ from netbox_atlas.geometry import MM_PER_INCH, natural_key, rack_footprint_cm
 
 __all__ = (
     'Box',
+    'CabinetFrame',
     'RackScene',
     'SceneBand',
     'SceneCable',
     'SceneDevice',
     'build_scene',
     'cabinet_height',
+    'device_box',
+    'scene_device',
 )
 
 # One rack unit, by the EIA-310 standard.
@@ -176,33 +179,39 @@ class RackScene:
     """
 
     rack: object
-    width: float
-    depth: float
-    height: float
-    plinth: float
-    faceplate: float
-    front_rail_z: float
-    rear_rail_z: float
-    # The centre and the width of each cable manager, along x.
-    managers: dict[str, tuple[float, float]]
+    frame: 'CabinetFrame'
     units: list[tuple[int, float]]
     devices: list[SceneDevice] = field(default_factory=list)
     cables: list[SceneCable] = field(default_factory=list)
     reservations: list[SceneBand] = field(default_factory=list)
     free: list[SceneBand] = field(default_factory=list)
 
+    @property
+    def depth(self) -> float:
+        return self.frame.depth
+
+    @property
+    def height(self) -> float:
+        return self.frame.height
+
+    @property
+    def front_rail_z(self) -> float:
+        return self.frame.front_rail_z
+
+    @property
+    def rear_rail_z(self) -> float:
+        return self.frame.rear_rail_z
+
+    @property
+    def managers(self) -> dict[str, tuple[float, float]]:
+        return self.frame.managers
+
     def as_json(self) -> dict:
         return {
             'rack': {
                 'name': self.rack.name,
-                'width': _mm(self.width),
-                'depth': _mm(self.depth),
-                'height': _mm(self.height),
-                'plinth': _mm(self.plinth),
+                **self.frame.as_json(),
                 'unitHeight': UNIT_MM,
-                'faceplate': _mm(self.faceplate),
-                'frontRailZ': _mm(self.front_rail_z),
-                'rearRailZ': _mm(self.rear_rail_z),
                 'managers': {side: [_mm(x), _mm(w)] for side, (x, w) in self.managers.items()},
                 'units': [[unit, _mm(y)] for unit, y in self.units],
             },
@@ -227,9 +236,12 @@ def _mm(value: float) -> float:
     return round(value, 1)
 
 
-class _Frame:
+class CabinetFrame:
     """
-    The cabinet's measurements, and the conversion from rack units into them.
+    A cabinet's measurements, and the conversion from rack units into them.
+
+    Public so every drawing of a rack builds the same cabinet: the rack's own view, and the
+    floor when it shows the devices in each rack.
     """
 
     def __init__(self, rack) -> None:
@@ -283,8 +295,25 @@ class _Frame:
         z = self.rear_rail_z - LACING_NEAR_MM - row * LANE_PITCH_MM
         return x, z
 
+    def as_json(self) -> dict:
+        """What a drawing needs to build the cabinet around the devices."""
+        return {
+            'width': _mm(self.width),
+            'depth': _mm(self.depth),
+            'height': _mm(self.height),
+            'plinth': PLINTH_MM,
+            'interior': _mm(self.interior),
+            'faceplate': _mm(self.faceplate),
+            'frontRailZ': _mm(self.front_rail_z),
+            'rearRailZ': _mm(self.rear_rail_z),
+        }
 
-def _device_box(frame: _Frame, mounted) -> Box:
+
+def device_box(frame: CabinetFrame, mounted) -> Box:
+    """
+    Where a mounted device sits in its cabinet, in the cabinet's own millimetres: centred on its
+    footprint, with the front of the cabinet towards +z.
+    """
     device = mounted.device
     depth = frame.mounting_depth if device.device_type.is_full_depth else frame.mounting_depth / 2
     if mounted.face == 'rear':
@@ -306,32 +335,39 @@ def _image_url(image) -> str:
     return image.url if image else ''
 
 
-def _facts(mounted) -> list[str]:
+def _facts(mounted, ports: bool) -> list[str]:
     """
-    The lines of a device's hover card, below its name.
+    The lines of a device's hover card, below its name. The port count only where the ports
+    were loaded, which the rack's own view does and a whole floor of devices does not.
     """
     device = mounted.device
-    facts = [str(device.device_type), f'U{device.position:g} · mounted {mounted.face}']
+    # A float, because NetBox stores the position as a Decimal and `:g` keeps its `.0`.
+    facts = [str(device.device_type), f'U{float(device.position):g} · mounted {mounted.face}']
     if device.asset_tag:
         facts.insert(0, f'Asset tag {device.asset_tag}')
-    facts.append(f'{mounted.connected_count} of {mounted.port_count} ports connected')
+    if ports:
+        facts.append(f'{mounted.connected_count} of {mounted.port_count} ports connected')
     return facts
 
 
-def _scene_device(frame: _Frame, mounted) -> SceneDevice:
+def scene_device(frame: CabinetFrame, mounted, ports: bool = True) -> SceneDevice:
+    """
+    One mounted device, ready to draw. `ports` says whether its ports were loaded, so its hover
+    card can count them.
+    """
     device = mounted.device
     filters = {'device-tags': ' '.join(tag.slug for tag in device.tags.all())}
     filters.update({cell.filter.group: cell.keys for cell in mounted.field_cells})
     return SceneDevice(
         device=device,
-        box=_device_box(frame, mounted),
+        box=device_box(frame, mounted),
         facing=mounted.face,
         front_image=_image_url(device.device_type.front_image),
         rear_image=_image_url(device.device_type.rear_image),
         colour=mounted.colour,
         band=mounted.band,
         label=mounted.label,
-        facts=_facts(mounted),
+        facts=_facts(mounted, ports),
         filters=filters,
     )
 
@@ -376,7 +412,7 @@ def _end_label(run) -> str:
     return run.peer_name
 
 
-def _route(frame: _Frame, runs, boxes: dict[int, Box]) -> list[SceneCable]:
+def _route(frame: CabinetFrame, runs, boxes: dict[int, Box]) -> list[SceneCable]:
     exits = _exit_points(runs, boxes)
     # Lanes are handed out in the order the cables leave the rack from the top down, so
     # neighbouring devices get neighbouring lanes and their vertical runs stay side by side.
@@ -402,7 +438,7 @@ def _route(frame: _Frame, runs, boxes: dict[int, Box]) -> list[SceneCable]:
     return cables
 
 
-def _band_box(frame: _Frame, band) -> Box:
+def _band_box(frame: CabinetFrame, band) -> Box:
     height = band.units * UNIT_MM
     return Box(
         x=0.0,
@@ -419,23 +455,16 @@ def build_scene(elevation: RackElevation) -> RackScene:
     Lay a rack out in 3D, from the elevation of it the reader is allowed to see.
     """
     rack = elevation.rack
-    frame = _Frame(rack)
+    frame = CabinetFrame(rack)
 
-    devices = [_scene_device(frame, mounted) for mounted in elevation.devices]
+    devices = [scene_device(frame, mounted) for mounted in elevation.devices]
     boxes = {d.device.pk: d.box for d in devices}
     # A run the elevation could not attach to a cable row has nothing to be picked by.
     runs = [run for run in elevation.runs if run.cable is not None and run.local_device.pk in boxes]
 
     return RackScene(
         rack=rack,
-        width=frame.width,
-        depth=frame.depth,
-        height=frame.height,
-        plinth=PLINTH_MM,
-        faceplate=frame.faceplate,
-        front_rail_z=frame.front_rail_z,
-        rear_rail_z=frame.rear_rail_z,
-        managers=frame.managers,
+        frame=frame,
         units=[
             (unit, frame.y_bottom(unit_offset(rack, unit, 1)) + UNIT_MM / 2)
             for unit in range(rack.starting_unit, rack.starting_unit + rack.u_height)

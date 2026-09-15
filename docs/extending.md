@@ -115,4 +115,12 @@ Positions and sizes are in centimetres from the room's top-left corner. A rack's
 | `runs` | With `runs=1`: `rack_a`, `rack_b` and the `count` of cables between them |
 | `exits` | With `runs=1`: `rack`, the `label` and `kind` of what the cables reach, their `count`, and the `x` and `y` of the point on the wall |
 
+`GET /api/plugins/atlas/floors/<id>/devices/` returns the devices in every rack on the floor, as the floor's Devices view draws them, with the same permissions. It has one entry in `racks` per placed rack:
+
+| Key | Holds |
+|---|---|
+| `id` | The rack's id, as `rack_id` in the layout |
+| `cabinet` | The cabinet in millimetres, centred on its footprint with its front towards +z: `width`, `depth`, `height`, `plinth`, `interior`, `faceplate`, `frontRailZ`, `rearRailZ` |
+| `devices` | For each mounted device: `id`, `label`, `url`, `assetTag`, `box` (centre x, y, z and width, height, depth, in the cabinet's millimetres), `facing` (`front` or `rear`), `images` (`front` and `rear` URLs, empty when the device type has none), `colour` and `facts` |
+
 The three models also have the usual NetBox endpoints: `floors`, `rack-placements` and `floor-layers` under `/api/plugins/atlas/`.

@@ -15,19 +15,23 @@ page) is z, and y is up. The origin is the room's corner the plan puts at its to
 """
 
 import math
+from collections import defaultdict
 from dataclasses import dataclass, field
 
 from django.urls import reverse
 
+from netbox_atlas.elevation import mount_device
 from netbox_atlas.floor_cabling import RUN_COLOUR
 from netbox_atlas.geometry import floor_viewport
-from netbox_atlas.scene import cabinet_height
+from netbox_atlas.models import RackPlacement
+from netbox_atlas.scene import CabinetFrame, cabinet_height, scene_device
 
 __all__ = (
     'FloorScene',
     'SceneExit',
     'SceneRack',
     'SceneRun',
+    'build_floor_devices',
     'build_floor_scene',
 )
 
@@ -247,3 +251,43 @@ def build_floor_scene(floor, placed, runs=(), exits=()) -> FloorScene:
         runs=[_run(run, by_id) for run in runs if run.a.rack.pk in by_id and run.b.rack.pk in by_id],
         exits=[_exit(exit_, by_id, tray_y) for exit_ in exits if exit_.rack.rack.pk in by_id],
     )
+
+
+def build_floor_devices(floor, racks, devices) -> dict:
+    """
+    The devices in every rack placed on a floor, for the floor's Devices view.
+
+    Each rack comes with its cabinet and its devices laid out exactly as the rack's own view lays
+    them out, in the cabinet's millimetres with its front towards +z, so the drawing places the
+    whole cabinet on the floor with one turn and one move. Loaded only when the reader asks for
+    the devices: a floor of fifty racks is a thousand devices, and the page does not need them
+    to draw the cabinets.
+
+    `racks` and `devices` are the querysets the reader may see. The cost is the same whatever the
+    size of the floor: one query for the placements and one for the devices with their types,
+    roles and tags. Ports are not loaded, so the hover card does not count them.
+    """
+    placements = RackPlacement.objects.filter(floor=floor, rack__in=racks).select_related('rack')
+    by_rack = {placement.rack_id: placement.rack for placement in placements}
+
+    mounted = defaultdict(list)
+    queryset = (
+        devices.filter(rack_id__in=by_rack, position__isnull=False)
+        .select_related('device_type', 'role')
+        .prefetch_related('tags')
+        .order_by('position')
+    )
+    for device in queryset:
+        mounted[device.rack_id].append(mount_device(by_rack[device.rack_id], device))
+
+    entries = []
+    for rack_id, rack in by_rack.items():
+        frame = CabinetFrame(rack)
+        entries.append(
+            {
+                'id': rack_id,
+                'cabinet': frame.as_json(),
+                'devices': [scene_device(frame, m, ports=False).as_json() for m in mounted[rack_id]],
+            }
+        )
+    return {'racks': entries}

@@ -130,6 +130,27 @@ class FloorViewSet(NetBoxModelViewSet):
             }
         )
 
+    @action(detail=True, methods=['get'])
+    def devices(self, request, pk=None):
+        """
+        The devices in every rack on this floor, placed in their cabinets.
+
+        What the floor's Devices view draws, fetched when the reader switches to it rather than
+        rendered into every floor page. Restricted like the layout: racks and devices the caller
+        may not view are left out.
+        """
+        from dcim.models import Device, Rack
+
+        from netbox_atlas.floor_scene import build_floor_devices
+
+        return Response(
+            build_floor_devices(
+                self.get_object(),
+                racks=Rack.objects.restrict(request.user, 'view'),
+                devices=Device.objects.restrict(request.user, 'view'),
+            )
+        )
+
 
 class RackPlacementViewSet(NetBoxModelViewSet):
     queryset = RackPlacement.objects.prefetch_related('tags').select_related('floor', 'rack')

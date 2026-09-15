@@ -8,7 +8,8 @@
  * beside the drawing can follow it.
  */
 
-import { CABINET_FINISH, PICK_LAYER, follow, isDark, openStage, textOn } from 'atlas/stage3d';
+import { drawCabinet, drawDevice } from 'atlas/cabinet3d';
+import { PICK_LAYER, follow, isDark, openStage } from 'atlas/stage3d';
 
 const panel = window.atlasRackPanel;
 const element = document.querySelector('[data-atlas-3d]');
@@ -45,64 +46,13 @@ function build(stage, config) {
    * The cabinet
    * ------------------------------------------------------------------- */
 
-  const frameMaterial = new THREE.MeshStandardMaterial(CABINET_FINISH.frame);
-  const railMaterial = new THREE.MeshStandardMaterial(CABINET_FINISH.rail);
-  const glassMaterial = new THREE.MeshStandardMaterial({
-    color: 0xa9bccf,
-    metalness: 0.1,
-    roughness: 0.1,
-    transparent: true,
-    opacity: 0.035,
-    depthWrite: false,
-    side: THREE.DoubleSide,
-  });
+  drawCabinet(stage, scene, rack);
 
-  function block(material, w, h, d, x, y, z, { shadow = true } = {}) {
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
-    mesh.position.set(x, y, z);
-    mesh.castShadow = shadow;
-    mesh.receiveShadow = shadow;
-    scene.add(mesh);
-    return mesh;
-  }
-
-  const interiorTop = rack.plinth + rack.units.length * rack.unitHeight;
-  const interior = interiorTop - rack.plinth;
+  const interior = rack.interior;
+  const interiorTop = rack.plinth + interior;
   const post = 26;
   const halfW = rack.width / 2;
   const halfD = rack.depth / 2;
-
-  // Plinth, posts and the roof frame. The roof is a frame and not a lid, so the cables leaving
-  // through it stay visible from above.
-  block(frameMaterial, rack.width, rack.plinth - 20, rack.depth, 0, (rack.plinth - 20) / 2 + 20, 0);
-  [-1, 1].forEach(function (sx) {
-    [-1, 1].forEach(function (sz) {
-      block(frameMaterial, post, rack.height - 20, post, sx * (halfW - post / 2), (rack.height + 20) / 2, sz * (halfD - post / 2));
-      // Feet.
-      block(frameMaterial, 50, 20, 50, sx * (halfW - 45), 10, sz * (halfD - 45));
-    });
-    block(frameMaterial, post, post, rack.depth, sx * (halfW - post / 2), rack.height - post / 2, 0);
-  });
-  [-1, 1].forEach(function (sz) {
-    block(frameMaterial, rack.width, post, post, 0, rack.height - post / 2, sz * (halfD - post / 2));
-  });
-
-  // Glass side panels, so the inside is always in view.
-  [-1, 1].forEach(function (sx) {
-    const side = new THREE.Mesh(new THREE.PlaneGeometry(rack.depth - post * 2, rack.height - rack.plinth - post), glassMaterial);
-    side.rotation.y = Math.PI / 2;
-    side.position.set(sx * (halfW - 2), (rack.height + rack.plinth - post) / 2, 0);
-    side.renderOrder = 2;
-    scene.add(side);
-  });
-
-  // Mounting rails, front and rear.
-  const railX = rack.faceplate / 2 - 11;
-  [rack.frontRailZ + 1.5, rack.rearRailZ - 1.5].forEach(function (z) {
-    [-1, 1].forEach(function (sx) {
-      block(railMaterial, 18, interior, 3, sx * railX, rack.plinth + interior / 2, z, { shadow: false });
-    });
-  });
 
   /* The unit numbers, on a strip beside the front rail and another beside the rear one. Drawn
      into a texture rather than as page elements, so they turn with the rack and stay where
@@ -173,77 +123,38 @@ function build(stage, config) {
     deviceViews.forEach((view) => view.outline.material.color.copy(highlight));
   }
 
-  /* A face with no image: the colouring, and the device's name on it, drawn on a canvas at the
-     proportions of the face so the letters are not stretched. */
-  function nameTexture(text, colour, width, height) {
-    const canvasWidth = 1024;
-    const canvasHeight = Math.max(64, Math.round((canvasWidth * height) / width));
-    const canvas = document.createElement('canvas');
-    canvas.width = canvasWidth;
-    canvas.height = canvasHeight;
-    const context = canvas.getContext('2d');
-
-    const gradient = context.createLinearGradient(0, 0, 0, canvasHeight);
-    gradient.addColorStop(0, colour);
-    gradient.addColorStop(1, stage.shade(colour, -0.18));
-    context.fillStyle = gradient;
-    context.fillRect(0, 0, canvasWidth, canvasHeight);
-
-    // The ears, darker, so a colour face still reads as something bolted to rails.
-    const ear = Math.round((22 / width) * canvasWidth);
-    context.fillStyle = 'rgba(0, 0, 0, .22)';
-    context.fillRect(0, 0, ear, canvasHeight);
-    context.fillRect(canvasWidth - ear, 0, ear, canvasHeight);
-
-    const size = Math.min(44, canvasHeight * 0.5);
-    context.font = `600 ${size}px system-ui, -apple-system, "Segoe UI", sans-serif`;
-    context.fillStyle = textOn(colour);
-    context.textBaseline = 'middle';
-    context.fillText(text, ear + 24, canvasHeight / 2, canvasWidth - 2 * ear - 48);
-
-    return stage.finishTexture(new THREE.CanvasTexture(canvas));
-  }
-
   function deviceView(device) {
     const [x, y, z, w, h, d] = device.box;
-    const faces = {
-      front: new THREE.MeshStandardMaterial({ roughness: 0.55, metalness: 0.15 }),
-      rear: new THREE.MeshStandardMaterial({ roughness: 0.55, metalness: 0.15 }),
-    };
-    const body = new THREE.MeshStandardMaterial(CABINET_FINISH.chassis);
-    // BoxGeometry's groups run +x, -x, +y, -y, +z, -z. A device mounted on the rear shows its
-    // own front at the back of the cabinet.
-    const plusZ = device.facing === 'rear' ? faces.rear : faces.front;
-    const minusZ = device.facing === 'rear' ? faces.front : faces.rear;
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), [body, body, body, body, plusZ, minusZ]);
-    mesh.position.set(x, y, z);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    mesh.layers.enable(PICK_LAYER);
-    scene.add(mesh);
+    const tags = [];
+    // The colouring, as a tag down the left ear of whichever face you are looking at, so it is
+    // there in Images mode without painting over the photograph. Shown once an image is.
+    const box = drawDevice(stage, scene, device, {
+      onPaint: () => tags.forEach((tag) => (tag.visible = mode === 'images' && box.hasImage())),
+    });
+    box.mesh.userData.device = box;
 
     const outline = new THREE.LineSegments(
       new THREE.EdgesGeometry(new THREE.BoxGeometry(w + 2, h + 2, d + 2)),
       new THREE.LineBasicMaterial({ transparent: true, opacity: 0, depthTest: false })
     );
-    outline.position.copy(mesh.position);
+    outline.position.copy(box.mesh.position);
     outline.renderOrder = 5;
     scene.add(outline);
 
-    // The colouring, as a tag down the left ear of whichever face you are looking at, so it is
-    // there in Images mode without painting over the photograph.
     const tagMaterial = new THREE.MeshBasicMaterial({ color: new THREE.Color(device.colour) });
-    const tags = [
+    [
       [z + d / 2 + 0.6, -w / 2 + 5, 0],
       [z - d / 2 - 0.6, w / 2 - 5, Math.PI],
-    ].map(function ([tagZ, tagX, turn]) {
+    ].forEach(function ([tagZ, tagX, turn]) {
       const tag = new THREE.Mesh(new THREE.PlaneGeometry(6, Math.max(4, h - 6)), tagMaterial);
       tag.position.set(x + tagX, y, tagZ);
       tag.rotation.y = turn;
       scene.add(tag);
-      return tag;
+      tags.push(tag);
     });
 
+    // The name belongs to the face it is written on, so it is only shown while that face is
+    // turned towards the camera; from the other side it would float over the wrong device.
     const name = stage.label(device.label, 'atlas-3d__name');
     const facingZ = device.facing === 'rear' ? z - d / 2 - 1 : z + d / 2 + 1;
     const facingX = device.facing === 'rear' ? w / 2 - 36 : -w / 2 + 36;
@@ -251,41 +162,13 @@ function build(stage, config) {
     name.center.set(device.facing === 'rear' ? 1 : 0, 0.5);
     scene.add(name);
 
-    // The name belongs to the face it is written on, so it is only shown while that face is
-    // turned towards the camera; from the other side it would float over the wrong device.
-    const normal = new THREE.Vector3(0, 0, device.facing === 'rear' ? -1 : 1);
-    const view = { device, mesh, faces, body, outline, tags, tagMaterial, name, normal, textures: {} };
-    view.textures.colour = nameTexture(device.label, device.colour, w, h);
-    mesh.userData.device = view;
-    return view;
+    return Object.assign(box, { outline, tags, tagMaterial, name });
   }
 
   const deviceViews = devices.map(deviceView);
   const deviceById = new Map(deviceViews.map((view) => [String(view.device.id), view]));
 
-  function paintFaces(view) {
-    ['front', 'rear'].forEach(function (side) {
-      const image = mode === 'images' ? view.textures[side] : null;
-      const material = view.faces[side];
-      material.map = image || view.textures.colour;
-      material.color.set(0xffffff);
-      material.needsUpdate = true;
-    });
-    view.tags.forEach((tag) => (tag.visible = mode === 'images' && Boolean(view.textures.front || view.textures.rear)));
-  }
-
-  deviceViews.forEach(function (view) {
-    paintFaces(view);
-    ['front', 'rear'].forEach(function (side) {
-      const url = view.device.images[side];
-      if (!url) return;
-      stage.imageTexture(url).then(function (texture) {
-        view.textures[side] = texture;
-        paintFaces(view);
-        stage.requestRender();
-      });
-    });
-  });
+  deviceViews.forEach((view) => view.paint(mode));
 
   const toCamera = new THREE.Vector3();
   stage.beforeLabels(function () {
@@ -606,7 +489,7 @@ function build(stage, config) {
     if (!modeButton) return;
     mode = modeButton.dataset.atlasMode;
     if (window.atlasState) window.atlasState.set('mode', mode === 'colour' ? ['colour'] : []);
-    deviceViews.forEach(paintFaces);
+    deviceViews.forEach((view) => view.paint(mode));
     markMode();
     apply();
   });
