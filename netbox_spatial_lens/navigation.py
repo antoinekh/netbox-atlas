@@ -46,5 +46,5 @@ menu = PluginMenu(
         ('Estate', (world_item,)),
         ('Floor plans', (floor_item, placement_item, layer_item)),
     ),
-    icon_class='mdi mdi-floor-plan',
+    icon_class='mdi mdi-layers-search',
 )
