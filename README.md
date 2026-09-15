@@ -57,7 +57,7 @@ The room in 3D, every rack a cabinet at its real position, rotation and height, 
 
 ![A row of eight cabinets standing on a metre grid, their roofs and doors coloured by how full they are, the cables leaving the row running from their tops to the walls, and the hover card of one rack](docs/images/floor-3d.png)
 
-![Row 3 in the Devices view: eight open cabinets on the metre grid, each with its real devices and their rear panels, roofs coloured by how full they are, and the hover card of one server naming its rack, type and unit](docs/images/floor-devices.png)
+![Row 3 in the Devices view: eight open cabinets on the metre grid, each with its real devices and their rear panels, roofs coloured by rack role, and the hover card of one server naming its rack, type and unit](docs/images/floor-devices.png)
 
 ### The rack
 
