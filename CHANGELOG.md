@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Docs:** the README's floor section shows the 3D Devices view instead of the 2D plan.
+
 ## v0.2.0 (2026-09-15)
 
 - **Rack view:** now drawn in 3D with Three.js, replacing the 2D elevation: device type front and rear images, every cable through the cable managers, camera presets.
